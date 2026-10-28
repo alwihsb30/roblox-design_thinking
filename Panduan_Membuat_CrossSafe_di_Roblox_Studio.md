@@ -32,6 +32,8 @@ Workspace
 
 Untuk menambah objek, klik kanan layanan/folder yang dituju di Explorer, pilih **Insert Object**, lalu cari jenis objek di atas. Roblox menjalankan `LocalScript` di `StarterGui` untuk tiap pemain. `GameManager` membuat `GameNetwork`, empat `RemoteEvent`, dan satu `RemoteFunction` otomatis ketika server dimulai; jangan buat salinan remotes secara manual. Script juga membuat ProximityPrompt pada `Rani_NPC`. [Panduan lokasi script](https://create.roblox.com/docs/scripting/locations)
 
+Jika project sudah memiliki `ScreenGui` CrossSafe lama atau salinan `CrossSafeClient` di `StarterPlayerScripts`, hapus/nonaktifkan duplikat itu. UI baru dibuat oleh LocalScript ini dan memulai dalam keadaan tersembunyi; GUI lama yang masih ada bisa tetap tampil terpisah.
+
 ## 2. Masukkan kode ke objek yang benar
 
 Buka masing-masing file hasil dan salin seluruh isinya ke objek Studio yang namanya cocok:
