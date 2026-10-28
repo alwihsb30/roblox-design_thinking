@@ -8,6 +8,7 @@ local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeDat
 local VotingHandler = require(script.Parent:WaitForChild("VotingHandler"))
 local EvaluationService = require(script.Parent:WaitForChild("EvaluationService"))
 local ClueQuestManager = require(script.Parent:WaitForChild("ClueQuestManager"))
+local SpatialMissionManager = require(script.Parent:WaitForChild("SpatialMissionManager"))
 
 local isTreeValid, treeError = DecisionTreeData.Validate()
 assert(isTreeValid, "DecisionTreeData gagal divalidasi: " .. tostring(treeError))
@@ -49,7 +50,7 @@ local function getOrCreateRemoteFunction(parent: Instance, name: string): Remote
 end
 
 type TransactionAction = "PURCHASE" | "SALVAGE_REFUND" | "UPGRADE"
-type Phase = "WAITING_FOR_RANI" | "DECISIONS" | "ITERATION" | "COMPLETE"
+type Phase = "WAITING_FOR_RANI" | "DECISIONS" | "MISSION" | "SIMULATION" | "ITERATION" | "COMPLETE"
 
 type TransactionRecord = {
 	Timestamp: number,
@@ -144,6 +145,8 @@ local function setupRaniPrompt(npc: Instance)
 			else
 				SyncGameStateEvent:FireClient(player, "RANI_GATEKEEPER", foundCount, requiredCount)
 			end
+		elseif GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
+			SpatialMissionManager.SendState(player)
 		else
 			SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
 		end
@@ -261,18 +264,46 @@ local function mountPrototypeModel(modelName: string): boolean
 	local slot = getPrototypeSlot()
 	local template = getPrototypeModel(modelName)
 	if not slot then
-		warn("Workspace.InteractionStation.PrototypeSlot tidak ditemukan; visual prototipe dilewati.")
-		return false
-	end
-	if not template then
-		warn("Model prototipe tidak ditemukan di ServerStorage.PrototypeModels: " .. modelName)
+		warn("Workspace.InteractionStation.PrototypeSlot tidak ditemukan; model prototipe tidak dapat dipasang.")
 		return false
 	end
 	destroyMountedModels()
-	local clone = template:Clone()
-	clone.Name = "ActivePrototypeInstance"
-	clone:PivotTo(slot.CFrame)
-	clone.Parent = workspace
+	if template then
+		local clone = template:Clone()
+		clone.Name = "ActivePrototypeInstance"
+		clone:PivotTo(slot.CFrame)
+		clone.Parent = workspace
+	else
+		-- Graybox terlihat tetap tersedia walau model dekoratif belum dibuat.
+		warn("Model prototipe belum ada di ServerStorage.PrototypeModels; menampilkan graybox berlabel: " .. modelName)
+		local fallback = Instance.new("Model")
+		fallback.Name = "ActivePrototypeInstance"
+		local block = Instance.new("Part")
+		block.Name = "PrototypePreview"
+		block.Size = Vector3.new(4, 3, 4)
+		block.CFrame = slot.CFrame * CFrame.new(0, slot.Size.Y / 2 + 1.5, 0)
+		block.Anchored = true
+		block.Color = Color3.fromRGB(58, 153, 130)
+		block.Material = Enum.Material.Neon
+		block.Parent = fallback
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "PrototypeName"
+		billboard.Size = UDim2.fromOffset(230, 58)
+		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+		billboard.AlwaysOnTop = true
+		billboard.Parent = block
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundColor3 = Color3.fromRGB(24, 35, 48)
+		label.Text = "PROTOTIPE\n" .. modelName
+		label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		label.TextScaled = true
+		label.TextWrapped = true
+		label.Font = Enum.Font.GothamBold
+		label.Parent = billboard
+		fallback.PrimaryPart = block
+		fallback.Parent = workspace
+	end
 	return true
 end
 
@@ -344,6 +375,27 @@ local function evaluateCurrentSession(): any
 	)
 end
 
+local function beginWarRoomMission()
+	GameSession.Phase = "MISSION"
+	SpatialMissionManager.StartWarRoomMission()
+end
+
+local function beginBlueprintMission()
+	GameSession.Phase = "MISSION"
+	SpatialMissionManager.StartBlueprintMission()
+end
+
+local function startTestingSimulation()
+	GameSession.Phase = "SIMULATION"
+	GameSession.CurrentStage = 5
+	local report = evaluateCurrentSession()
+	SpatialMissionManager.RunTestingSimulation(report.SafetyStatus, function()
+		if GameSession.Phase == "SIMULATION" then
+			publishReport(report)
+		end
+	end)
+end
+
 local function finishPrototypePurchase(prototypeKey: string)
 	local prototype = DecisionTreeData.Prototypes[prototypeKey]
 	local node = DecisionTreeData.Nodes[GameSession.ActiveNodeKey]
@@ -360,6 +412,12 @@ local function finishPrototypePurchase(prototypeKey: string)
 		startVoting()
 		return
 	end
+	local worldReady, setupMessage = SpatialMissionManager.CanRunTestingSimulation()
+	if not worldReady then
+		SyncGameStateEvent:FireAllClients("MISSION_SETUP_MISSING", setupMessage)
+		startVoting()
+		return
+	end
 	if not recordTransaction("PURCHASE", prototypeKey, prototype.Cost) then
 		SyncGameStateEvent:FireAllClients("BUDGET_REJECTED", GameSession.Budget, prototype.Cost)
 		startVoting()
@@ -368,10 +426,12 @@ local function finishPrototypePurchase(prototypeKey: string)
 
 	GameSession.SelectedPrototypeKey = prototypeKey
 	GameSession.IsPatched = false
-	GameSession.CurrentStage = 5
-	mountPrototypeModel(prototype.ModelName)
-	local report = evaluateCurrentSession()
-	publishReport(report)
+	GameSession.Phase = "MISSION"
+	GameSession.CurrentStage = 4
+	if not SpatialMissionManager.StartMaterialMission() then
+		-- Workspace was checked before the purchase; this is a guard for a part removed during runtime.
+		SyncGameStateEvent:FireAllClients("MISSION_SETUP_MISSING", "Objek logistik berubah saat sesi berjalan. Hentikan Play Test dan pulihkan Workspace.")
+	end
 end
 
 processWinningChoice = function(winningChoice: string)
@@ -392,10 +452,17 @@ processWinningChoice = function(winningChoice: string)
 	end
 
 	if GameSession.CurrentStage <= 3 then
+		local completedStage = GameSession.CurrentStage
 		table.insert(GameSession.PathChoices, winningChoice)
 		GameSession.CurrentStage += 1
 		GameSession.ActiveNodeKey = choice.NextNode
-		startVoting()
+		if completedStage == 1 then
+			beginWarRoomMission()
+		elseif completedStage == 2 then
+			beginBlueprintMission()
+		else
+			startVoting()
+		end
 	elseif GameSession.CurrentStage == 4 then
 		finishPrototypePurchase(winningChoice)
 	end
@@ -444,10 +511,10 @@ local function deepPivot()
 	GameSession.SelectedPrototypeKey = ""
 	GameSession.IsPatched = false
 	GameSession.LatestReport = nil
-	GameSession.Phase = "DECISIONS"
+	GameSession.Phase = "MISSION"
 	destroyMountedModels()
 	SyncGameStateEvent:FireAllClients("DEEP_PIVOT_STARTED", GameSession.Budget, GameSession.PivotCount)
-	startVoting()
+	beginWarRoomMission()
 end
 
 local function getIterationActionKeys(): { string }
@@ -497,7 +564,7 @@ local function applyIteration(iterationType: string)
 		end
 		GameSession.IsPatched = true
 		mountQuickPatchModel(patch.ModelName)
-		publishReport(evaluateCurrentSession())
+		startTestingSimulation()
 	elseif iterationType == "DEEP_PIVOT" then
 		if not report.CanDeepPivot then
 			SyncGameStateEvent:FireAllClients("ITERATION_REJECTED", "DEEP_PIVOT_UNAVAILABLE")
@@ -550,6 +617,27 @@ local function handleIterationVote(player: Player, voteToken: any, iterationType
 	end
 end
 
+local function handleSpatialMissionCompleted(missionKey: string, _player: Player, _detail: string?)
+	if missionKey == "WAR_ROOM" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 2 then
+		GameSession.Phase = "DECISIONS"
+		startVoting()
+	elseif missionKey == "BLUEPRINT" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 3 then
+		GameSession.Phase = "DECISIONS"
+		startVoting()
+	elseif missionKey == "ASSEMBLY" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 4 then
+		local prototype = DecisionTreeData.Prototypes[GameSession.SelectedPrototypeKey]
+		if not prototype then
+			warn("Prototipe hilang saat misi perakitan selesai; simulasi tidak dimulai.")
+			return
+		end
+		mountPrototypeModel(prototype.ModelName)
+		SyncGameStateEvent:FireAllClients("ASSEMBLY_COMPLETE", "Model " .. prototype.ModelName .. " sudah tampil di PrototypeSlot. Simulasi penyeberangan dimulai.")
+		startTestingSimulation()
+	end
+end
+
+SpatialMissionManager.Initialize(SyncGameStateEvent, handleSpatialMissionCompleted)
+
 StartSessionEvent.OnServerEvent:Connect(function(player: Player)
 	if not isPlayerNearRani(player) then
 		SyncGameStateEvent:FireClient(player, "START_REJECTED", "DEKATI_RANI")
@@ -561,7 +649,11 @@ StartSessionEvent.OnServerEvent:Connect(function(player: Player)
 		return
 	end
 	if GameSession.Phase ~= "WAITING_FOR_RANI" then
-		SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
+		if GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
+			SpatialMissionManager.SendState(player)
+		else
+			SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
+		end
 		return
 	end
 
@@ -575,6 +667,10 @@ SubmitVoteEvent.OnServerEvent:Connect(function(player: Player, nodeKey: any, vot
 		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "INVALID_PAYLOAD")
 		return
 	end
+	if GameSession.Phase ~= "DECISIONS" then
+		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "WORLD_MISSION_GATE")
+		return
+	end
 	if VotingHandler.CastVote(player, nodeKey, voteToken, choiceKey) then
 		SyncGameStateEvent:FireClient(player, "VOTE_ACCEPTED", nodeKey, choiceKey)
 	else
@@ -586,6 +682,7 @@ TriggerIterationEvent.OnServerEvent:Connect(handleIterationVote)
 
 GetGameStateFunction.OnServerInvoke = function(_player: Player)
 	local clueCount, cluesRequired = ClueQuestManager.GetProgress()
+	local spatialState = SpatialMissionManager.GetSnapshot()
 	return {
 		Phase = GameSession.Phase,
 		CurrentStage = GameSession.CurrentStage,
@@ -600,6 +697,12 @@ GetGameStateFunction.OnServerInvoke = function(_player: Player)
 		PivotCount = GameSession.PivotCount,
 		ClueCount = clueCount,
 		CluesRequired = cluesRequired,
+		MissionKey = spatialState.MissionKey,
+		MissionTitle = spatialState.MissionTitle,
+		MissionDetail = spatialState.MissionDetail,
+		MissionProgress = spatialState.MissionProgress,
+		MissionRequired = spatialState.MissionRequired,
+		BlueprintVisited = spatialState.BlueprintVisited,
 		LatestReport = GameSession.LatestReport,
 		Ledger = copyLedger(),
 	}
@@ -608,12 +711,17 @@ end
 Players.PlayerAdded:Connect(function(player: Player)
 	task.defer(function()
 		ClueQuestManager.SendProgress(player)
+		if GameSession.CurrentStage >= 2 or GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
+			SpatialMissionManager.SendState(player)
+		end
 		if GameSession.Phase == "DECISIONS" then
 			if not VotingHandler.IsActive() then
 				startVoting()
 			else
 				sendPrompt(player)
 			end
+		elseif GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
+			return
 		elseif GameSession.LatestReport then
 			SyncGameStateEvent:FireClient(player, "SHOW_EVALUATION_REPORT", GameSession.LatestReport, GameSession.Budget)
 			if GameSession.Phase == "ITERATION" then
