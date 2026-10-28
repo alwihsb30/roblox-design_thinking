@@ -7,6 +7,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeData"))
 local VotingHandler = require(script.Parent:WaitForChild("VotingHandler"))
 local EvaluationService = require(script.Parent:WaitForChild("EvaluationService"))
+local ClueQuestManager = require(script.Parent:WaitForChild("ClueQuestManager"))
 
 local isTreeValid, treeError = DecisionTreeData.Validate()
 assert(isTreeValid, "DecisionTreeData gagal divalidasi: " .. tostring(treeError))
@@ -64,6 +65,7 @@ local SyncGameStateEvent = getOrCreateRemoteEvent(NetFolder, "SyncGameState")
 local TriggerIterationEvent = getOrCreateRemoteEvent(NetFolder, "TriggerIteration")
 local StartSessionEvent = getOrCreateRemoteEvent(NetFolder, "StartSession")
 local GetGameStateFunction = getOrCreateRemoteFunction(NetFolder, "GetGameState")
+ClueQuestManager.Initialize(SyncGameStateEvent)
 
 local GameSession = {
 	CurrentStage = 1,
@@ -136,7 +138,12 @@ local function setupRaniPrompt(npc: Instance)
 
 	talkPrompt.Triggered:Connect(function(player: Player)
 		if GameSession.Phase == "WAITING_FOR_RANI" then
-			SyncGameStateEvent:FireClient(player, "RANI_DIALOGUE")
+			local foundCount, requiredCount = ClueQuestManager.GetProgress()
+			if ClueQuestManager.IsComplete() then
+				SyncGameStateEvent:FireClient(player, "RANI_DIALOGUE", foundCount, requiredCount)
+			else
+				SyncGameStateEvent:FireClient(player, "RANI_GATEKEEPER", foundCount, requiredCount)
+			end
 		else
 			SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
 		end
@@ -548,6 +555,11 @@ StartSessionEvent.OnServerEvent:Connect(function(player: Player)
 		SyncGameStateEvent:FireClient(player, "START_REJECTED", "DEKATI_RANI")
 		return
 	end
+	if not ClueQuestManager.IsComplete() then
+		local foundCount, requiredCount = ClueQuestManager.GetProgress()
+		SyncGameStateEvent:FireClient(player, "RANI_GATEKEEPER", foundCount, requiredCount)
+		return
+	end
 	if GameSession.Phase ~= "WAITING_FOR_RANI" then
 		SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
 		return
@@ -573,6 +585,7 @@ end)
 TriggerIterationEvent.OnServerEvent:Connect(handleIterationVote)
 
 GetGameStateFunction.OnServerInvoke = function(_player: Player)
+	local clueCount, cluesRequired = ClueQuestManager.GetProgress()
 	return {
 		Phase = GameSession.Phase,
 		CurrentStage = GameSession.CurrentStage,
@@ -585,6 +598,8 @@ GetGameStateFunction.OnServerInvoke = function(_player: Player)
 		SelectedPrototypeKey = GameSession.SelectedPrototypeKey,
 		IsPatched = GameSession.IsPatched,
 		PivotCount = GameSession.PivotCount,
+		ClueCount = clueCount,
+		CluesRequired = cluesRequired,
 		LatestReport = GameSession.LatestReport,
 		Ledger = copyLedger(),
 	}
@@ -592,6 +607,7 @@ end
 
 Players.PlayerAdded:Connect(function(player: Player)
 	task.defer(function()
+		ClueQuestManager.SendProgress(player)
 		if GameSession.Phase == "DECISIONS" then
 			if not VotingHandler.IsActive() then
 				startVoting()
