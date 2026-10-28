@@ -155,7 +155,8 @@ else
 end
 
 local function isPlayerNearRani(player: Player): boolean
-	if not RaniPromptPart or not RaniPromptPart.Parent then
+	local promptPart = RaniPromptPart
+	if not promptPart or not promptPart.Parent then
 		return false
 	end
 	local character = player.Character
@@ -163,8 +164,9 @@ local function isPlayerNearRani(player: Player): boolean
 	if not root or not root:IsA("BasePart") then
 		return false
 	end
-	local allowedDistance = (RaniPrompt and RaniPrompt.MaxActivationDistance or 10) + 3
-	return (root.Position - RaniPromptPart.Position).Magnitude <= allowedDistance
+	local talkPrompt = RaniPrompt
+	local allowedDistance = (talkPrompt and talkPrompt.MaxActivationDistance or 10) + 3
+	return (root.Position - promptPart.Position).Magnitude <= allowedDistance
 end
 
 local function getNodeChoiceKeys(nodeKey: string, budget: number): { string }
