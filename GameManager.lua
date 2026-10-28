@@ -703,7 +703,7 @@ GetGameStateFunction.OnServerInvoke = function(_player: Player)
 		MissionProgress = spatialState.MissionProgress,
 		MissionRequired = spatialState.MissionRequired,
 		BlueprintVisited = spatialState.BlueprintVisited,
-		LatestReport = GameSession.LatestReport,
+		LatestReport = if GameSession.Phase == "SIMULATION" then nil else GameSession.LatestReport,
 		Ledger = copyLedger(),
 	}
 end
