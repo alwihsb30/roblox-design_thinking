@@ -82,13 +82,13 @@ local RaniPromptPart: BasePart? = nil
 local RaniPrompt: ProximityPrompt? = nil
 
 local function getRaniPromptPart(npc: Instance): BasePart?
-	local preferredPart = npc:FindFirstChild("HumanoidRootPart", true)
-	if preferredPart and preferredPart:IsA("BasePart") then
-		return preferredPart
-	end
 	local head = npc:FindFirstChild("Head", true)
 	if head and head:IsA("BasePart") then
 		return head
+	end
+	local preferredPart = npc:FindFirstChild("HumanoidRootPart", true)
+	if preferredPart and preferredPart:IsA("BasePart") then
+		return preferredPart
 	end
 	if npc:IsA("Model") and npc.PrimaryPart then
 		return npc.PrimaryPart
@@ -128,7 +128,8 @@ local function setupRaniPrompt(npc: Instance)
 	talkPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	talkPrompt.HoldDuration = 0
 	talkPrompt.MaxActivationDistance = 10
-	talkPrompt.RequiresLineOfSight = true
+	-- The prompt may be attached to HumanoidRootPart; don't let the rig hide its own prompt.
+	talkPrompt.RequiresLineOfSight = false
 	talkPrompt.Enabled = true
 	RaniPromptPart = promptPart
 	RaniPrompt = talkPrompt
