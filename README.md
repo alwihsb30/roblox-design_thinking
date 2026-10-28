@@ -6,7 +6,7 @@ Game pembelajaran Design Thinking untuk merancang penyeberangan sekolah yang ama
 
 1. Buat Baseplate dan tambahkan ModuleScript `DecisionTreeData` ke `ReplicatedStorage`.
 2. Tambahkan `GameManager` (Script), `VotingHandler` (ModuleScript), dan `EvaluationService` (ModuleScript) ke `ServerScriptService`.
-3. Tambahkan `CrossSafeClient.client.lua` sebagai LocalScript ke `StarterGui`.
+3. Tambahkan `CrossSafeClient.client.lua` sebagai LocalScript ke `StarterGui`. Hapus/nonaktifkan GUI atau LocalScript CrossSafe lama agar tidak ada duplikat yang selalu tampil.
 4. Tambahkan Model bernama `Rani_NPC` sebagai anak langsung `Workspace`. Model harus berisi HumanoidRootPart, Head, PrimaryPart, atau Part lain. Server membuat ProximityPrompt `TalkToRaniPrompt` otomatis.
 5. Jalankan game dan dekati Rani. Tekan prompt **Ajak bicara**, baca dialog pembuka, lalu pilih **Mulai diskusi bersama Rani**. GUI tidak tampil dan voting tidak berjalan sebelum interaksi ini.
 6. Untuk model visual, tambahkan `ServerStorage/PrototypeModels` dan `Workspace/InteractionStation/PrototypeSlot`; daftar nama model ada di panduan.
