@@ -1,21 +1,22 @@
 # CrossSafe — Roblox Design Thinking
 
-Game pembelajaran Design Thinking untuk merancang penyeberangan sekolah yang aman. Sesi tim memiliki anggaran awal Rp10.000.000, voting bersama, Safety Gate, Quick Patch, dan Deep Pivot.
+Game pembelajaran Design Thinking tentang keselamatan penyeberangan sekolah. Sesi tim memakai modal Rp10.000.000, misi lapangan, voting bersama, Safety Gate, Quick Patch, dan Deep Pivot.
 
-## Mulai di Roblox Studio
+## Misi 1: Olah TKP
 
-1. Buat Baseplate dan tambahkan ModuleScript `DecisionTreeData` ke `ReplicatedStorage`.
-2. Tambahkan `GameManager` (Script), `VotingHandler` (ModuleScript), dan `EvaluationService` (ModuleScript) ke `ServerScriptService`.
-3. Tambahkan `CrossSafeClient.client.lua` sebagai LocalScript ke `StarterGui`. Hapus/nonaktifkan GUI atau LocalScript CrossSafe lama agar tidak ada duplikat yang selalu tampil.
-4. Tambahkan Model bernama `Rani_NPC` sebagai anak langsung `Workspace`. Model harus berisi HumanoidRootPart, Head, PrimaryPart, atau Part lain. Server membuat ProximityPrompt `TalkToRaniPrompt` otomatis.
-5. Jalankan game dan dekati Rani. Tekan prompt **Ajak bicara**, baca dialog pembuka, lalu pilih **Mulai diskusi bersama Rani**. GUI tidak tampil dan voting tidak berjalan sebelum interaksi ini.
-6. Untuk model visual, tambahkan `ServerStorage/PrototypeModels` dan `Workspace/InteractionStation/PrototypeSlot`; daftar nama model ada di panduan.
+Sebelum voting Tahap 1 terbuka, tim harus menemukan tiga bukti pada `Workspace/InvestigationClues`:
 
-## Berkas
+- `Clue_Rambu` — rambu sekolah tertutup daun.
+- `Clue_Marka` — marka zebra cross pudar/licin.
+- `Clue_Penerangan` — tiang penerangan mati.
 
-- [Panduan lengkap Roblox Studio](Panduan_Membuat_CrossSafe_di_Roblox_Studio.md)
-- [Audit setup dan asumsi gameplay](CrossSafe_Setup_Audit.md)
-- Backend: `DecisionTreeData.lua`, `VotingHandler.lua`, `GameManager.lua`, `EvaluationService.lua`
-- UI: `CrossSafeClient.client.lua`
+Progres dibagi oleh seluruh pemain di server. `ClueQuestManager` membuat prompt Periksa dan mengunci klaim tiap bukti di server. HUD menampilkan jumlah temuan; Rani belum mengizinkan sesi dimulai sebelum 3/3.
 
-Uji voting di tab **Test** menggunakan **Server & Clients** dengan tiga klien. Runtime Roblox Studio masih perlu diverifikasi setelah file dipasang.
+## Setup cepat di Roblox Studio
+
+1. Masukkan `ClueQuestManager.lua` sebagai ModuleScript di `ServerScriptService`; perbarui `GameManager` dan `CrossSafeClient`.
+2. Di mode Edit, jalankan isi `CreateInvestigationClues_CommandBar.lua` dari View > Command Bar.
+3. Pindahkan Part placeholder ke lokasi bukti pada map. Pastikan nama folder dan Part tidak berubah.
+4. Jalankan Play Test, periksa tiga titik, lalu kembali ke Rani setelah tracker mencapai 3/3.
+
+Panduan rinci dan checklist pengujian ada di [Panduan Roblox Studio](Panduan_Membuat_CrossSafe_di_Roblox_Studio.md). Ringkasan otoritas dan asumsi ada di [Audit setup](CrossSafe_Setup_Audit.md).
