@@ -34,13 +34,13 @@ questGui.Parent = playerGui
 local trackerFrame = Instance.new("Frame")
 trackerFrame.Name = "QuestTracker"
 trackerFrame.Position = UDim2.new(0.02, 0, 0.02, 0)
-trackerFrame.Size = UDim2.new(0.92, 0, 0, 58)
+trackerFrame.Size = UDim2.new(0.92, 0, 0, 78)
 trackerFrame.BackgroundColor3 = Color3.fromRGB(24, 35, 48)
 trackerFrame.BorderSizePixel = 0
 trackerFrame.Parent = questGui
 local trackerConstraint = Instance.new("UISizeConstraint")
-trackerConstraint.MinSize = Vector2.new(250, 58)
-trackerConstraint.MaxSize = Vector2.new(420, 58)
+trackerConstraint.MinSize = Vector2.new(250, 78)
+trackerConstraint.MaxSize = Vector2.new(420, 78)
 trackerConstraint.Parent = trackerFrame
 local trackerCorner = Instance.new("UICorner")
 trackerCorner.CornerRadius = UDim.new(0, 10)
@@ -49,7 +49,7 @@ trackerCorner.Parent = trackerFrame
 local trackerLabel = Instance.new("TextLabel")
 trackerLabel.Name = "QuestText"
 trackerLabel.Position = UDim2.fromOffset(14, 6)
-trackerLabel.Size = UDim2.new(1, -28, 1, -12)
+trackerLabel.Size = UDim2.new(1, -28, 0, 30)
 trackerLabel.BackgroundTransparency = 1
 trackerLabel.Font = Enum.Font.GothamSemibold
 trackerLabel.Text = "Misi: Selidiki Titik Bahaya Jalan Raya [0/3]"
@@ -59,9 +59,23 @@ trackerLabel.TextWrapped = true
 trackerLabel.TextXAlignment = Enum.TextXAlignment.Left
 trackerLabel.Parent = trackerFrame
 
+local trackerDetail = Instance.new("TextLabel")
+trackerDetail.Name = "QuestDetail"
+trackerDetail.Position = UDim2.fromOffset(14, 36)
+trackerDetail.Size = UDim2.new(1, -28, 0, 36)
+trackerDetail.BackgroundTransparency = 1
+trackerDetail.Font = Enum.Font.Gotham
+trackerDetail.Text = "Periksa tiga bukti fisik sebelum berbicara dengan Rani."
+trackerDetail.TextColor3 = Color3.fromRGB(218, 229, 236)
+trackerDetail.TextSize = 12
+trackerDetail.TextWrapped = true
+trackerDetail.TextXAlignment = Enum.TextXAlignment.Left
+trackerDetail.TextYAlignment = Enum.TextYAlignment.Top
+trackerDetail.Parent = trackerFrame
+
 local notificationCard = Instance.new("Frame")
 notificationCard.Name = "ClueNotification"
-notificationCard.Position = UDim2.new(0.02, 0, 0.02, 68)
+notificationCard.Position = UDim2.new(0.02, 0, 0.02, 88)
 notificationCard.Size = UDim2.new(0.92, 0, 0, 132)
 notificationCard.BackgroundColor3 = Color3.fromRGB(31, 76, 64)
 notificationCard.BorderSizePixel = 0
@@ -108,6 +122,19 @@ local function updateQuestProgress(found: number, required: number)
 	questRequired = math.max(required, 1)
 	questFound = math.clamp(found, 0, questRequired)
 	trackerLabel.Text = string.format("Misi: Selidiki Titik Bahaya Jalan Raya [%d/%d]", questFound, questRequired)
+	trackerDetail.Text = "Periksa bukti rambu, marka zebra cross, dan penerangan jalan."
+	if questFound >= questRequired then
+		trackerLabel.TextColor3 = Color3.fromRGB(160, 255, 192)
+	else
+		trackerLabel.TextColor3 = Color3.fromRGB(255, 232, 156)
+	end
+end
+
+local function updateMissionState(title: string, detail: string, progress: number, required: number)
+	questRequired = math.max(required, 1)
+	questFound = math.clamp(progress, 0, questRequired)
+	trackerLabel.Text = string.format("%s [%d/%d]", title, questFound, questRequired)
+	trackerDetail.Text = detail
 	if questFound >= questRequired then
 		trackerLabel.TextColor3 = Color3.fromRGB(160, 255, 192)
 	else
@@ -118,6 +145,19 @@ end
 local function showClueNotification(displayName: string, description: string, found: number, required: number)
 	updateQuestProgress(found, required)
 	notificationTitle.Text = "Bukti ditemukan: " .. displayName
+	notificationDescription.Text = description
+	notificationCard.Visible = true
+	notificationVersion += 1
+	local thisVersion = notificationVersion
+	task.delay(4, function()
+		if notificationVersion == thisVersion then
+			notificationCard.Visible = false
+		end
+	end)
+end
+
+local function showWorldNotice(title: string, description: string)
+	notificationTitle.Text = title
 	notificationDescription.Text = description
 	notificationCard.Visible = true
 	notificationVersion += 1
@@ -344,6 +384,7 @@ local function renderOptions(options: { ButtonOption }, voteToken: number?, hand
 end
 
 local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget: number, stage: number, voteToken: number?)
+	gui.Enabled = true
 	local node = DecisionTreeData.Nodes[nodeKey]
 	if not node then
 		statusLabel.Text = "Node tidak ditemukan: " .. nodeKey
@@ -371,6 +412,7 @@ local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget
 end
 
 local function renderReport(report: any, budget: number)
+	gui.Enabled = true
 	activeNodeKey = nil
 	activeVoteToken = nil
 	clearChoices()
@@ -398,6 +440,7 @@ local function renderReport(report: any, budget: number)
 end
 
 local function renderIteration(actions: { string }, budget: number, mustDeepPivot: boolean, voteToken: number?)
+	gui.Enabled = true
 	activeNodeKey = nil
 	setBudget(budget)
 	stageLabel.Text = "Tahap Iterasi | Voting Tim"
@@ -419,8 +462,18 @@ end
 
 local function renderSnapshot(snapshot: any)
 	setBudget(snapshot.Budget)
-	updateQuestProgress(snapshot.ClueCount or 0, snapshot.CluesRequired or 3)
-	if snapshot.Phase == "DECISIONS" then
+	if snapshot.Phase == "WAITING_FOR_RANI" or (snapshot.Phase == "DECISIONS" and snapshot.CurrentStage == 1) then
+		updateQuestProgress(snapshot.ClueCount or 0, snapshot.CluesRequired or 3)
+	elseif snapshot.MissionTitle then
+		updateMissionState(snapshot.MissionTitle, snapshot.MissionDetail or "", snapshot.MissionProgress or 0, snapshot.MissionRequired or 1)
+	end
+	if snapshot.Phase == "MISSION" or snapshot.Phase == "SIMULATION" then
+		gui.Enabled = false
+		activeNodeKey = nil
+		activeVoteToken = nil
+		clearChoices()
+		return
+	elseif snapshot.Phase == "DECISIONS" then
 		renderNode(snapshot.ActiveNodeKey, snapshot.AllowedChoiceKeys, snapshot.Budget, snapshot.CurrentStage, snapshot.VoteToken)
 	elseif snapshot.LatestReport then
 		renderReport(snapshot.LatestReport, snapshot.Budget)
@@ -457,6 +510,25 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 		updateQuestProgress(args[1], args[2])
 	elseif action == "CLUE_FOUND" then
 		showClueNotification(args[2], args[3], args[4], args[5])
+	elseif action == "MISSION_UPDATE" then
+		activeNodeKey = nil
+		activeVoteToken = nil
+		clearChoices()
+		gui.Enabled = false
+		updateMissionState(args[1], args[2], args[3], args[4])
+	elseif action == "WORLD_DISCOVERY" or action == "ASSEMBLY_STARTED" or action == "MISSION_HINT" then
+		showWorldNotice(args[1], args[2])
+	elseif action == "MISSION_SETUP_MISSING" then
+		gui.Enabled = false
+		updateMissionState("Misi tertahan: setup Workspace", args[1], 0, 1)
+	elseif action == "SIMULATION_BEAT" then
+		if args[1] == "SAFETY_PASS" then
+			trackerDetail.Text = "Lampu penyeberangan aktif; kendaraan berhenti di belakang garis stop."
+		else
+			trackerDetail.Text = "Rani terdistraksi; kendaraan membunyikan klakson dan ia mundur."
+		end
+	elseif action == "ASSEMBLY_COMPLETE" then
+		showWorldNotice("Prototipe berhasil dirakit", args[1] or "Model tim siap diuji di zebra cross.")
 	elseif action == "OPEN_GAME_UI" then
 		gui.Enabled = true
 		titleLabel.Text = "CrossSafe | Design Thinking"
