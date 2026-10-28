@@ -10,6 +10,7 @@ Dokumen ini menjelaskan empat skrip backend dan satu LocalScript UI yang disedia
 | `VotingHandler.lua` | ModuleScript | `ServerScriptService/VotingHandler` |
 | `EvaluationService.lua` | ModuleScript | `ServerScriptService/EvaluationService` |
 | `GameManager.lua` | Script | `ServerScriptService/GameManager` |
+| `CrossSafeClient.client.lua` | LocalScript | `StarterGui/CrossSafeClient` |
 
 `GameManager` membuat folder `ReplicatedStorage/GameNetwork` dan objek jaringan berikut saat server berjalan:
 
@@ -17,7 +18,7 @@ Dokumen ini menjelaskan empat skrip backend dan satu LocalScript UI yang disedia
 - `SyncGameState` — RemoteEvent untuk menerima prompt, hasil, dan status transaksi.
 - `TriggerIteration` — RemoteEvent untuk meminta `QUICK_PATCH` atau `DEEP_PIVOT`.
 - `StartSession` — RemoteEvent untuk memulai permainan setelah pemain berbicara dengan Rani; permintaan dicek jaraknya oleh server.
-- `GetGameState` — RemoteFunction untuk mengambil status saat LocalScript baru dimulai atau pemain bergabung terlambat.
+- `GetGameState` — RemoteFunction untuk mengambil status sesi saat pemain membuka UI di dekat Rani.
 
 `CrossSafeClient.client.lua` menyediakan LocalScript UI starter yang membuat panel dan tombol secara dinamis, tetapi GUI mulai dalam keadaan tersembunyi. Pemain harus mengaktifkan ProximityPrompt pada Rani, membaca dialog pembuka, lalu menekan tombol mulai; server menahan voting sampai itu terjadi. Saat UI dibuka lagi di dekat Rani, klien mengambil status melalui `GetGameState:InvokeServer()` dan menampilkan hanya ID yang ada di `AllowedChoiceKeys` atau `AllowedIterationActions`. Ia menggunakan `VoteToken` terbaru dari status atau prompt. Saat pemain memilih tahap biasa, ia memanggil `SubmitVote:FireServer(ActiveNodeKey, VoteToken, choiceId)`. Saat memilih iterasi, setiap anggota tim mengirim suaranya melalui `TriggerIteration:FireServer(VoteToken, "QUICK_PATCH")` atau `TriggerIteration:FireServer(VoteToken, "DEEP_PIVOT")`; server menyelesaikan voting bersama sebelum membelanjakan atau mengembalikan saldo. Token mencegah paket suara terlambat dipakai pada tahap atau putaran iterasi baru. Klien mendengarkan perintah `SyncGameState` seperti `RANI_DIALOGUE`, `OPEN_GAME_UI`, `PROMPT_NODE`, `SHOW_EVALUATION_REPORT`, `PROMPT_ITERATION`, `VOTE_REJECTED`, `BUDGET_REJECTED`, dan `DEEP_PIVOT_STARTED`.
 
