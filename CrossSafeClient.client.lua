@@ -13,6 +13,7 @@ local network = ReplicatedStorage:WaitForChild("GameNetwork")
 local syncEvent = network:WaitForChild("SyncGameState") :: RemoteEvent
 local submitVoteEvent = network:WaitForChild("SubmitVote") :: RemoteEvent
 local iterationEvent = network:WaitForChild("TriggerIteration") :: RemoteEvent
+local startSessionEvent = network:WaitForChild("StartSession") :: RemoteEvent
 local getGameState = network:WaitForChild("GetGameState") :: RemoteFunction
 
 type ButtonOption = {
@@ -26,6 +27,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "CrossSafeGui"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = false
+gui.Enabled = false
 gui.Parent = playerGui
 
 local panel = Instance.new("Frame")
@@ -64,7 +66,26 @@ end
 
 local titleLabel = makeLabel("Title", 12, 32, 22)
 titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Size = UDim2.new(1, -80, 0, 32)
 titleLabel.Text = "CrossSafe | Design Thinking"
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Position = UDim2.new(1, -58, 0, 10)
+closeButton.Size = UDim2.fromOffset(38, 34)
+closeButton.BackgroundColor3 = Color3.fromRGB(76, 88, 101)
+closeButton.BorderSizePixel = 0
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Text = "×"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 22
+closeButton.Parent = panel
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeButton
+closeButton.Activated:Connect(function()
+	gui.Enabled = false
+end)
 
 local budgetLabel = makeLabel("Budget", 46, 25, 16)
 budgetLabel.TextColor3 = Color3.fromRGB(255, 218, 105)
@@ -110,6 +131,9 @@ local choiceButtons = {
 	makeChoiceButton("Choice1", 354),
 	makeChoiceButton("Choice2", 442),
 }
+local startSessionButton = makeChoiceButton("StartSession", 354)
+startSessionButton.Text = "Mulai diskusi bersama Rani"
+startSessionButton.Visible = false
 
 local clickHandlers: { [number]: (() -> ()) } = {}
 for index, button in ipairs(choiceButtons) do
@@ -131,7 +155,33 @@ local function clearChoices()
 		button.Active = false
 		clickHandlers[index] = nil
 	end
+	startSessionButton.Visible = false
+	startSessionButton.Active = false
 end
+
+local function showRaniDialogue()
+	gui.Enabled = true
+	activeNodeKey = nil
+	activeVoteToken = nil
+	clearChoices()
+	titleLabel.Text = "CrossSafe | Bicara dengan Rani"
+	budgetLabel.Text = ""
+	stageLabel.Text = "Empathize — dengarkan pengguna"
+	promptLabel.Text = "Rani: Aku takut terjebak di tengah jalan saat menyeberang empat lajur. Aku sering tidak yakin kapan kendaraan akan berhenti. Bisa bantu tim mencari solusi yang aman?"
+	statusLabel.Text = "Dekati Rani dan pilih Mulai diskusi untuk memulai sesi tim."
+	startSessionButton.Visible = true
+	startSessionButton.Active = true
+end
+
+startSessionButton.Activated:Connect(function()
+	if not startSessionButton.Active then
+		return
+	end
+	startSessionButton.Active = false
+	startSessionButton.Visible = false
+	statusLabel.Text = "Memulai sesi bersama Rani..."
+	startSessionEvent:FireServer()
+end)
 
 local function formatRupiah(amount: number): string
 	local remaining = tostring(math.floor(amount))
@@ -279,7 +329,22 @@ end
 
 syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 	local args = { ... }
-	if action == "PROMPT_NODE" then
+	if action == "RANI_DIALOGUE" then
+		showRaniDialogue()
+	elseif action == "OPEN_GAME_UI" then
+		gui.Enabled = true
+		titleLabel.Text = "CrossSafe | Design Thinking"
+		refreshFromServer()
+	elseif action == "SESSION_STARTED" then
+		gui.Enabled = true
+		titleLabel.Text = "CrossSafe | Design Thinking"
+		startSessionButton.Visible = false
+		statusLabel.Text = "Sesi dimulai. Dengarkan kebutuhan Rani dan diskusikan pilihan bersama tim."
+	elseif action == "START_REJECTED" then
+		statusLabel.Text = "Untuk memulai, dekati Rani lalu pilih tombol mulai sekali lagi."
+		startSessionButton.Visible = true
+		startSessionButton.Active = true
+	elseif action == "PROMPT_NODE" then
 		renderNode(args[1], args[2], args[3], args[4], args[5])
 	elseif action == "SHOW_EVALUATION_REPORT" then
 		renderReport(args[1], args[2])
@@ -302,4 +367,3 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 	end
 end)
 
-refreshFromServer()

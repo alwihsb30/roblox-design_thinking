@@ -48,7 +48,7 @@ local function getOrCreateRemoteFunction(parent: Instance, name: string): Remote
 end
 
 type TransactionAction = "PURCHASE" | "SALVAGE_REFUND" | "UPGRADE"
-type Phase = "DECISIONS" | "ITERATION" | "COMPLETE"
+type Phase = "WAITING_FOR_RANI" | "DECISIONS" | "ITERATION" | "COMPLETE"
 
 type TransactionRecord = {
 	Timestamp: number,
@@ -62,6 +62,7 @@ local NetFolder = getOrCreateFolder(ReplicatedStorage, "GameNetwork")
 local SubmitVoteEvent = getOrCreateRemoteEvent(NetFolder, "SubmitVote")
 local SyncGameStateEvent = getOrCreateRemoteEvent(NetFolder, "SyncGameState")
 local TriggerIterationEvent = getOrCreateRemoteEvent(NetFolder, "TriggerIteration")
+local StartSessionEvent = getOrCreateRemoteEvent(NetFolder, "StartSession")
 local GetGameStateFunction = getOrCreateRemoteFunction(NetFolder, "GetGameState")
 
 local GameSession = {
@@ -71,11 +72,103 @@ local GameSession = {
 	SelectedPrototypeKey = "",
 	Budget = DecisionTreeData.Constants.InitialBudget,
 	Ledger = {} :: { TransactionRecord },
-	Phase = "DECISIONS" :: Phase,
+	Phase = "WAITING_FOR_RANI" :: Phase,
 	IsPatched = false,
 	LatestReport = nil :: any,
 	PivotCount = 0,
 }
+
+local RaniPromptPart: BasePart? = nil
+local RaniPrompt: ProximityPrompt? = nil
+
+local function getRaniPromptPart(npc: Instance): BasePart?
+	local head = npc:FindFirstChild("Head", true)
+	if head and head:IsA("BasePart") then
+		return head
+	end
+	local preferredPart = npc:FindFirstChild("HumanoidRootPart", true)
+	if preferredPart and preferredPart:IsA("BasePart") then
+		return preferredPart
+	end
+	if npc:IsA("Model") and npc.PrimaryPart then
+		return npc.PrimaryPart
+	end
+	for _, descendant in ipairs(npc:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			return descendant
+		end
+	end
+	return nil
+end
+
+local function setupRaniPrompt(npc: Instance)
+	if RaniPrompt and RaniPrompt.Parent then
+		return
+	end
+	local promptPart = getRaniPromptPart(npc)
+	if not promptPart then
+		warn("Workspace.Rani_NPC tidak memiliki BasePart untuk ProximityPrompt.")
+		return
+	end
+	local prompt = promptPart:FindFirstChild("TalkToRaniPrompt")
+	if prompt and not prompt:IsA("ProximityPrompt") then
+		warn("TalkToRaniPrompt harus berupa ProximityPrompt; objek itu dilewati.")
+		return
+	end
+	if not prompt then
+		prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "TalkToRaniPrompt"
+		prompt.Parent = promptPart
+	end
+
+	local talkPrompt = prompt :: ProximityPrompt
+	talkPrompt.ActionText = "Ajak bicara"
+	talkPrompt.ObjectText = "Rani"
+	talkPrompt.KeyboardKeyCode = Enum.KeyCode.E
+	talkPrompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	talkPrompt.HoldDuration = 0
+	talkPrompt.MaxActivationDistance = 10
+	-- The prompt may be attached to HumanoidRootPart; don't let the rig hide its own prompt.
+	talkPrompt.RequiresLineOfSight = false
+	talkPrompt.Enabled = true
+	RaniPromptPart = promptPart
+	RaniPrompt = talkPrompt
+
+	talkPrompt.Triggered:Connect(function(player: Player)
+		if GameSession.Phase == "WAITING_FOR_RANI" then
+			SyncGameStateEvent:FireClient(player, "RANI_DIALOGUE")
+		else
+			SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
+		end
+	end)
+end
+
+local existingRani = workspace:FindFirstChild("Rani_NPC")
+if existingRani then
+	setupRaniPrompt(existingRani)
+else
+	warn("NPC belum ditemukan. Tambahkan Model bernama Workspace.Rani_NPC agar sesi dapat dimulai lewat interaksi.")
+	workspace.ChildAdded:Connect(function(child: Instance)
+		if child.Name == "Rani_NPC" then
+			setupRaniPrompt(child)
+		end
+	end)
+end
+
+local function isPlayerNearRani(player: Player): boolean
+	local promptPart = RaniPromptPart
+	if not promptPart or not promptPart.Parent then
+		return false
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return false
+	end
+	local talkPrompt = RaniPrompt
+	local allowedDistance = (talkPrompt and talkPrompt.MaxActivationDistance or 10) + 3
+	return (root.Position - promptPart.Position).Magnitude <= allowedDistance
+end
 
 local function getNodeChoiceKeys(nodeKey: string, budget: number): { string }
 	local node = DecisionTreeData.Nodes[nodeKey]
@@ -450,6 +543,21 @@ local function handleIterationVote(player: Player, voteToken: any, iterationType
 	end
 end
 
+StartSessionEvent.OnServerEvent:Connect(function(player: Player)
+	if not isPlayerNearRani(player) then
+		SyncGameStateEvent:FireClient(player, "START_REJECTED", "DEKATI_RANI")
+		return
+	end
+	if GameSession.Phase ~= "WAITING_FOR_RANI" then
+		SyncGameStateEvent:FireClient(player, "OPEN_GAME_UI")
+		return
+	end
+
+	GameSession.Phase = "DECISIONS"
+	SyncGameStateEvent:FireClient(player, "SESSION_STARTED")
+	startVoting()
+end)
+
 SubmitVoteEvent.OnServerEvent:Connect(function(player: Player, nodeKey: any, voteToken: any, choiceKey: any)
 	if typeof(nodeKey) ~= "string" or typeof(voteToken) ~= "number" or typeof(choiceKey) ~= "string" then
 		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "INVALID_PAYLOAD")
@@ -512,8 +620,5 @@ Players.PlayerRemoving:Connect(function(_player: Player)
 	end)
 end)
 
-task.defer(function()
-	if #Players:GetPlayers() > 0 then
-		startVoting()
-	end
-end)
+-- Voting sengaja tidak dimulai saat server boot. Pemain memulai sesi dengan berbicara kepada Rani.
+
