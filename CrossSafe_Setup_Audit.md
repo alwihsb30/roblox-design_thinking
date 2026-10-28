@@ -1,6 +1,6 @@
 # CrossSafe — Implementasi dan Catatan Audit
 
-Dokumen ini menjelaskan lima skrip backend dan satu LocalScript UI, aturan yang dipakai saat keputusan bertentangan, dan komponen Roblox Studio yang masih perlu dibuat.
+Dokumen ini menjelaskan enam skrip server dan satu LocalScript UI, aturan yang dipakai saat keputusan bertentangan, serta komponen Roblox Studio yang masih perlu dibuat.
 
 ## File dan penempatan di Roblox Studio
 
@@ -10,6 +10,7 @@ Dokumen ini menjelaskan lima skrip backend dan satu LocalScript UI, aturan yang 
 | `VotingHandler.lua` | ModuleScript | `ServerScriptService/VotingHandler` |
 | `EvaluationService.lua` | ModuleScript | `ServerScriptService/EvaluationService` |
 | `ClueQuestManager.lua` | ModuleScript | `ServerScriptService/ClueQuestManager` |
+| `SpatialMissionManager.lua` | ModuleScript | `ServerScriptService/SpatialMissionManager` |
 | `GameManager.lua` | Script | `ServerScriptService/GameManager` |
 | `CrossSafeClient.client.lua` | LocalScript | `StarterGui/CrossSafeClient` |
 
@@ -23,7 +24,11 @@ Dokumen ini menjelaskan lima skrip backend dan satu LocalScript UI, aturan yang 
 
 `ClueQuestManager` membuat prompt pada tiga Part bernama `Clue_Rambu`, `Clue_Marka`, dan `Clue_Penerangan` di `Workspace/InvestigationClues`. Klaim bukti dan progres disimpan oleh server sebagai progres bersama per server; setiap klaim unik menonaktifkan prompt dan dikirim melalui `SyncGameState` (`CLUE_FOUND`/`CLUE_PROGRESS`). `GameManager` menolak memulai sesi bila jumlah bukti belum 3/3, termasuk jika klien memanggil RemoteEvent langsung.
 
+`SpatialMissionManager` membuat prompt server pada `WarRoom.Whiteboard`, `BlueprintStations.Station_A/Station_B`, `MaterialSupply.Crate`, dan `InteractionStation.PrototypeSlot`. Fase server berganti ke `MISSION` setelah Empathize dan Define; voting Ideate baru dimulai setelah setidaknya satu blueprint dipindai. Setelah pilihan Prototype, pembelian masuk ke ledger dan tim harus membawa Tool server yang memiliki atribut `CrossSafeMaterial` ke slot. Model hanya dipasang sesudah Tool sah digunakan pada prompt slot. `SIMULATION` menjalankan `Humanoid:MoveTo()` untuk Rani, tween kendaraan pada server, serta lampu keselamatan sebelum `SHOW_EVALUATION_REPORT` dikirim. SubmitVote dan StartSession tidak dapat melewati gerbang misi.
+
 `CrossSafeClient.client.lua` menyediakan HUD misi permanen dan card temuan empat detik pada GUI terpisah dari panel diskusi. Panel voting mulai tersembunyi. Jika pemain berbicara dengan Rani sebelum misi lengkap, ia melihat penolakan serta progres dan tombol mulai tidak tersedia; setelah 3/3, interaksi berikutnya menampilkan tombol mulai. Saat UI dibuka lagi di dekat Rani, klien mengambil status melalui `GetGameState:InvokeServer()` dan menampilkan hanya ID yang ada di `AllowedChoiceKeys` atau `AllowedIterationActions`. Ia menggunakan `VoteToken` terbaru dari status atau prompt. Saat pemain memilih tahap biasa, ia memanggil `SubmitVote:FireServer(ActiveNodeKey, VoteToken, choiceId)`. Saat memilih iterasi, setiap anggota tim mengirim suaranya melalui `TriggerIteration:FireServer(VoteToken, "QUICK_PATCH")` atau `TriggerIteration:FireServer(VoteToken, "DEEP_PIVOT")`; server menyelesaikan voting bersama sebelum membelanjakan atau mengembalikan saldo. Klien juga menangani `RANI_GATEKEEPER`, `CLUE_FOUND`, dan `CLUE_PROGRESS` dari `SyncGameState`.
+
+Selama `MISSION`/`SIMULATION`, Quest Tracker tetap terlihat dan panel voting dipaksa tersembunyi. Blueprint mana pun memenuhi gate Ideate; hubungan node/choice tetap ditentukan pohon keputusan dan server. Gerbang per tahap berlaku untuk satu server/tim yang sama, bukan progres DataStore.
 
 Data pilihan boleh dibaca klien untuk menampilkan teks, tetapi server tetap memeriksa node aktif, daftar pilihan yang diizinkan, jalur sebelumnya, biaya, saldo, dan tahap sesi. Jangan menerima skor atau saldo dari klien.
 
@@ -76,9 +81,11 @@ Workspace
     └── PrototypeSlot (BasePart)
 ```
 
-Model prototipe sebaiknya memiliki pivot yang sesuai dengan titik pemasangan. Jika model atau `PrototypeSlot` belum ada, sistem tetap menghitung permainan dan mencatat transaksi, tetapi menulis peringatan dan melewati visual model. Model patch adalah overlay opsional untuk tampilan; evaluasi keselamatan patch tetap dikelola server.
+Model prototipe sebaiknya memiliki pivot yang sesuai dengan titik pemasangan. `PrototypeSlot` diperlukan untuk misi angkut/rakit dan pemasangan. Jika model dekoratif belum ada di `ServerStorage.PrototypeModels`, GameManager menampilkan graybox berlabel. Model patch adalah overlay opsional untuk tampilan; evaluasi keselamatan patch tetap dikelola server.
 
-Model `Workspace.Rani_NPC` dan folder `Workspace.InvestigationClues` berisi tiga BasePart bernama tepat sesuai spesifikasi diperlukan. `GameManager` menambahkan ProximityPrompt `TalkToRaniPrompt` pada Rani; `ClueQuestManager` membuat prompt Periksa pada tiap bukti dan mengatur HoldDuration 1 detik. Jalan empat lajur, zebra cross, dan rambu menjadi aset lingkungan; VotingDesk fisik tidak diperlukan. Pastikan simulasi lalu lintas tetap berupa representasi edukatif dan tidak menyuruh pemain melakukan tindakan menyeberang yang berbahaya di dunia nyata.
+Model `Workspace.Rani_NPC` memerlukan `Humanoid` dan `HumanoidRootPart` untuk simulasi, selain Part tempat prompt bicara. `Workspace.InvestigationClues` memerlukan tiga BasePart dengan nama yang sesuai. Untuk misi 2–5, sediakan `WarRoom.Whiteboard`, minimal satu `BlueprintStations.Station_A/Station_B`, `MaterialSupply.Crate`, `InteractionStation.PrototypeSlot`, `Crosswalk_Destination`, `Crosswalk_Entry`, dan folder `CrossSafeSimulation` dengan `SignalLamp`, `Vehicle_1`, `VehicleStop_1`, serta `VehiclePass_1`. Helper Command Bar membuat dua stasiun, dua mobil, dan semua marker default; posisi/wajah marker harus disesuaikan ke map. Jalur Rani perlu bebas penghalang dan rig tidak boleh Anchored.
+
+`AssemblySound` dan `HornSound` dibuat tanpa `SoundId`; audio harus diisi dengan asset yang dapat diakses experience. Animasi kaget `CrossSafeFlinch` opsional; fallback-nya adalah lompat dan langkah mundur. Status `CONDITIONAL` memakai simulasi risiko seperti `FAIL`, tetapi Safety Gate dan laporan tetap menggunakan status asli dari EvaluationService.
 
 ## Asumsi rancangan yang dipakai
 
@@ -90,5 +97,5 @@ Model `Workspace.Rani_NPC` dan folder `Workspace.InvestigationClues` berisi tiga
 
 ## Batas implementasi
 
-Backend menyediakan data, voting, ledger, evaluasi, iterasi, interaksi Rani, serta misi bukti. `CrossSafeClient.client.lua` menyediakan HUD misi, notifikasi temuan, dialog, dan UI voting starter. Animasi Rani, simulasi lampu lalu lintas, countdown yang tersinkron, DataStore, dan isolasi sesi beberapa tim belum termasuk dan perlu dibuat terpisah bila dibutuhkan. Pemeriksaan runtime terakhir tetap perlu dilakukan di Roblox Studio dengan folder dan Part bukti ditempatkan serta pengujian beberapa klien.
+Backend menyediakan data, voting, ledger, evaluasi, iterasi, interaksi Rani, misi bukti, gate ruang, material/assembly, dan simulasi testing. `CrossSafeClient.client.lua` menyediakan Quest Tracker, notifikasi temuan, dan panel musyawarah yang disembunyikan selama misi. Simulasi adalah graybox server-driven; NPC bergerak dengan `Humanoid:MoveTo`, mobil dipindahkan dengan tween model, dan jalur harus disusun di Studio. Implementasi belum memakai PathfindingService, DataStore, timer voting yang dibagi per tim, atau isolasi beberapa tim dalam satu server. Pemeriksaan runtime tetap perlu dilakukan di Roblox Studio dan mode Server & Clients.
 
