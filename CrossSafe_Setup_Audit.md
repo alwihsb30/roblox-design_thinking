@@ -1,6 +1,6 @@
 # CrossSafe — Implementasi dan Catatan Audit
 
-Dokumen ini menjelaskan empat skrip backend dan satu LocalScript UI yang disediakan, aturan yang dipakai saat keputusan bertentangan, dan komponen Roblox Studio yang masih perlu dibuat.
+Dokumen ini menjelaskan lima skrip backend dan satu LocalScript UI, aturan yang dipakai saat keputusan bertentangan, dan komponen Roblox Studio yang masih perlu dibuat.
 
 ## File dan penempatan di Roblox Studio
 
@@ -9,6 +9,7 @@ Dokumen ini menjelaskan empat skrip backend dan satu LocalScript UI yang disedia
 | `DecisionTreeData.lua` | ModuleScript | `ReplicatedStorage/DecisionTreeData` |
 | `VotingHandler.lua` | ModuleScript | `ServerScriptService/VotingHandler` |
 | `EvaluationService.lua` | ModuleScript | `ServerScriptService/EvaluationService` |
+| `ClueQuestManager.lua` | ModuleScript | `ServerScriptService/ClueQuestManager` |
 | `GameManager.lua` | Script | `ServerScriptService/GameManager` |
 | `CrossSafeClient.client.lua` | LocalScript | `StarterGui/CrossSafeClient` |
 
@@ -20,7 +21,9 @@ Dokumen ini menjelaskan empat skrip backend dan satu LocalScript UI yang disedia
 - `StartSession` — RemoteEvent untuk memulai permainan setelah pemain berbicara dengan Rani; permintaan dicek jaraknya oleh server.
 - `GetGameState` — RemoteFunction untuk mengambil status sesi saat pemain membuka UI di dekat Rani.
 
-`CrossSafeClient.client.lua` menyediakan LocalScript UI starter yang membuat panel dan tombol secara dinamis, tetapi GUI mulai dalam keadaan tersembunyi. Pemain harus mengaktifkan ProximityPrompt pada Rani, membaca dialog pembuka, lalu menekan tombol mulai; server menahan voting sampai itu terjadi. Saat UI dibuka lagi di dekat Rani, klien mengambil status melalui `GetGameState:InvokeServer()` dan menampilkan hanya ID yang ada di `AllowedChoiceKeys` atau `AllowedIterationActions`. Ia menggunakan `VoteToken` terbaru dari status atau prompt. Saat pemain memilih tahap biasa, ia memanggil `SubmitVote:FireServer(ActiveNodeKey, VoteToken, choiceId)`. Saat memilih iterasi, setiap anggota tim mengirim suaranya melalui `TriggerIteration:FireServer(VoteToken, "QUICK_PATCH")` atau `TriggerIteration:FireServer(VoteToken, "DEEP_PIVOT")`; server menyelesaikan voting bersama sebelum membelanjakan atau mengembalikan saldo. Token mencegah paket suara terlambat dipakai pada tahap atau putaran iterasi baru. Klien mendengarkan perintah `SyncGameState` seperti `RANI_DIALOGUE`, `OPEN_GAME_UI`, `PROMPT_NODE`, `SHOW_EVALUATION_REPORT`, `PROMPT_ITERATION`, `VOTE_REJECTED`, `BUDGET_REJECTED`, dan `DEEP_PIVOT_STARTED`.
+`ClueQuestManager` membuat prompt pada tiga Part bernama `Clue_Rambu`, `Clue_Marka`, dan `Clue_Penerangan` di `Workspace/InvestigationClues`. Klaim bukti dan progres disimpan oleh server sebagai progres bersama per server; setiap klaim unik menonaktifkan prompt dan dikirim melalui `SyncGameState` (`CLUE_FOUND`/`CLUE_PROGRESS`). `GameManager` menolak memulai sesi bila jumlah bukti belum 3/3, termasuk jika klien memanggil RemoteEvent langsung.
+
+`CrossSafeClient.client.lua` menyediakan HUD misi permanen dan card temuan empat detik pada GUI terpisah dari panel diskusi. Panel voting mulai tersembunyi. Jika pemain berbicara dengan Rani sebelum misi lengkap, ia melihat penolakan serta progres dan tombol mulai tidak tersedia; setelah 3/3, interaksi berikutnya menampilkan tombol mulai. Saat UI dibuka lagi di dekat Rani, klien mengambil status melalui `GetGameState:InvokeServer()` dan menampilkan hanya ID yang ada di `AllowedChoiceKeys` atau `AllowedIterationActions`. Ia menggunakan `VoteToken` terbaru dari status atau prompt. Saat pemain memilih tahap biasa, ia memanggil `SubmitVote:FireServer(ActiveNodeKey, VoteToken, choiceId)`. Saat memilih iterasi, setiap anggota tim mengirim suaranya melalui `TriggerIteration:FireServer(VoteToken, "QUICK_PATCH")` atau `TriggerIteration:FireServer(VoteToken, "DEEP_PIVOT")`; server menyelesaikan voting bersama sebelum membelanjakan atau mengembalikan saldo. Klien juga menangani `RANI_GATEKEEPER`, `CLUE_FOUND`, dan `CLUE_PROGRESS` dari `SyncGameState`.
 
 Data pilihan boleh dibaca klien untuk menampilkan teks, tetapi server tetap memeriksa node aktif, daftar pilihan yang diizinkan, jalur sebelumnya, biaya, saldo, dan tahap sesi. Jangan menerima skor atau saldo dari klien.
 
@@ -75,7 +78,7 @@ Workspace
 
 Model prototipe sebaiknya memiliki pivot yang sesuai dengan titik pemasangan. Jika model atau `PrototypeSlot` belum ada, sistem tetap menghitung permainan dan mencatat transaksi, tetapi menulis peringatan dan melewati visual model. Model patch adalah overlay opsional untuk tampilan; evaluasi keselamatan patch tetap dikelola server.
 
-Model `Workspace.Rani_NPC` diperlukan agar tim dapat memulai sesi. `GameManager` menambahkan ProximityPrompt bernama `TalkToRaniPrompt` pada HumanoidRootPart, Head, PrimaryPart, atau BasePart pertama yang ditemukan. Jalan empat lajur, zebra cross, dan rambu menjadi aset lingkungan; VotingDesk fisik tidak diperlukan. Pastikan simulasi lalu lintas tetap berupa representasi edukatif dan tidak menyuruh pemain melakukan tindakan menyeberang yang berbahaya di dunia nyata.
+Model `Workspace.Rani_NPC` dan folder `Workspace.InvestigationClues` berisi tiga BasePart bernama tepat sesuai spesifikasi diperlukan. `GameManager` menambahkan ProximityPrompt `TalkToRaniPrompt` pada Rani; `ClueQuestManager` membuat prompt Periksa pada tiap bukti dan mengatur HoldDuration 1 detik. Jalan empat lajur, zebra cross, dan rambu menjadi aset lingkungan; VotingDesk fisik tidak diperlukan. Pastikan simulasi lalu lintas tetap berupa representasi edukatif dan tidak menyuruh pemain melakukan tindakan menyeberang yang berbahaya di dunia nyata.
 
 ## Asumsi rancangan yang dipakai
 
@@ -87,5 +90,5 @@ Model `Workspace.Rani_NPC` diperlukan agar tim dapat memulai sesi. `GameManager`
 
 ## Batas implementasi
 
-Empat file backend menyediakan data, voting, ledger, evaluasi, iterasi, serta pemicu ProximityPrompt untuk Rani; `CrossSafeClient.client.lua` memberi dialog pembuka dan UI voting starter. Animasi Rani, simulasi lampu lalu lintas, countdown yang tersinkron, DataStore, dan isolasi sesi beberapa tim belum termasuk dan perlu dibuat terpisah bila dibutuhkan. Audit yang disertakan memverifikasi relasi data dan alur server secara statis; pemeriksaan runtime terakhir tetap perlu dilakukan di Roblox Studio dengan file ditempatkan dan klien diuji.
+Backend menyediakan data, voting, ledger, evaluasi, iterasi, interaksi Rani, serta misi bukti. `CrossSafeClient.client.lua` menyediakan HUD misi, notifikasi temuan, dialog, dan UI voting starter. Animasi Rani, simulasi lampu lalu lintas, countdown yang tersinkron, DataStore, dan isolasi sesi beberapa tim belum termasuk dan perlu dibuat terpisah bila dibutuhkan. Pemeriksaan runtime terakhir tetap perlu dilakukan di Roblox Studio dengan folder dan Part bukti ditempatkan serta pengujian beberapa klien.
 
