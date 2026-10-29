@@ -17,6 +17,10 @@ Panduan ini untuk mulai bersih tanpa menghapus map lama. Hasil generator berupa 
 
 Jalankan generator ini satu kali saja pada Baseplate baru. Generator tidak menghapus apa pun; ia berhenti dengan pesan kesalahan bila mendeteksi objek CrossSafe yang sama, untuk mencegah prop bertumpuk. Layout mencakup jalan dan zebra cross, tiga bukti, Pos Satpam, dua meja blueprint, crate material, tempat rakit, lampu, mobil, marker, dan titik spawn.
 
+### Opsional: tambahkan hiasan visual
+
+Setelah generator map selesai, buat `Workspace.EnvironmentDecorations` sebagai Folder. Buka `CreateCrossSafeDecorationPack_CommandBar.lua`, salin seluruh isinya ke **View → Command Bar** saat mode Edit, lalu tekan **Enter** satu kali. Script menambah gerbang sekolah, atap Pos Satpam dan meja blueprint, pepohonan, garis lajur, serta pencahayaan pagi di dalam `EnvironmentDecorations.CrossSafe_VisualDressing`. Script tidak menghapus atau mengganti nama objek misi.
+
 ## 3. Pasang tujuh script game
 
 Untuk setiap file di repositori, buat object lewat tombol **+** pada layanan di Explorer, ubah namanya agar sama persis, buka editor, hapus isi default, lalu salin seluruh isi file ke editor.
