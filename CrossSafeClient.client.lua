@@ -34,13 +34,14 @@ questGui.Parent = playerGui
 local trackerFrame = Instance.new("Frame")
 trackerFrame.Name = "QuestTracker"
 trackerFrame.Position = UDim2.new(0.02, 0, 0.02, 0)
-trackerFrame.Size = UDim2.new(0.92, 0, 0, 78)
+trackerFrame.Size = UDim2.new(0.88, 0, 0, 70)
 trackerFrame.BackgroundColor3 = Color3.fromRGB(24, 35, 48)
+trackerFrame.BackgroundTransparency = 0.16
 trackerFrame.BorderSizePixel = 0
 trackerFrame.Parent = questGui
 local trackerConstraint = Instance.new("UISizeConstraint")
-trackerConstraint.MinSize = Vector2.new(250, 78)
-trackerConstraint.MaxSize = Vector2.new(420, 78)
+trackerConstraint.MinSize = Vector2.new(230, 70)
+trackerConstraint.MaxSize = Vector2.new(380, 70)
 trackerConstraint.Parent = trackerFrame
 local trackerCorner = Instance.new("UICorner")
 trackerCorner.CornerRadius = UDim.new(0, 10)
@@ -48,26 +49,26 @@ trackerCorner.Parent = trackerFrame
 
 local trackerLabel = Instance.new("TextLabel")
 trackerLabel.Name = "QuestText"
-trackerLabel.Position = UDim2.fromOffset(14, 6)
-trackerLabel.Size = UDim2.new(1, -28, 0, 30)
+trackerLabel.Position = UDim2.fromOffset(12, 5)
+trackerLabel.Size = UDim2.new(1, -24, 0, 26)
 trackerLabel.BackgroundTransparency = 1
 trackerLabel.Font = Enum.Font.GothamSemibold
-trackerLabel.Text = "Misi: Selidiki Titik Bahaya Jalan Raya [0/3]"
+trackerLabel.Text = "Misi: Cari 3 bukti bahaya [0/3]"
 trackerLabel.TextColor3 = Color3.fromRGB(255, 232, 156)
-trackerLabel.TextSize = 15
+trackerLabel.TextSize = 14
 trackerLabel.TextWrapped = true
 trackerLabel.TextXAlignment = Enum.TextXAlignment.Left
 trackerLabel.Parent = trackerFrame
 
 local trackerDetail = Instance.new("TextLabel")
 trackerDetail.Name = "QuestDetail"
-trackerDetail.Position = UDim2.fromOffset(14, 36)
-trackerDetail.Size = UDim2.new(1, -28, 0, 36)
+trackerDetail.Position = UDim2.fromOffset(12, 33)
+trackerDetail.Size = UDim2.new(1, -24, 0, 32)
 trackerDetail.BackgroundTransparency = 1
 trackerDetail.Font = Enum.Font.Gotham
 trackerDetail.Text = "Periksa tiga bukti fisik sebelum berbicara dengan Rani."
 trackerDetail.TextColor3 = Color3.fromRGB(218, 229, 236)
-trackerDetail.TextSize = 12
+trackerDetail.TextSize = 11
 trackerDetail.TextWrapped = true
 trackerDetail.TextXAlignment = Enum.TextXAlignment.Left
 trackerDetail.TextYAlignment = Enum.TextYAlignment.Top
@@ -76,14 +77,15 @@ trackerDetail.Parent = trackerFrame
 local notificationCard = Instance.new("Frame")
 notificationCard.Name = "ClueNotification"
 notificationCard.Position = UDim2.new(0.02, 0, 0.02, 88)
-notificationCard.Size = UDim2.new(0.92, 0, 0, 132)
+notificationCard.Size = UDim2.new(0.88, 0, 0, 108)
 notificationCard.BackgroundColor3 = Color3.fromRGB(31, 76, 64)
+notificationCard.BackgroundTransparency = 0.12
 notificationCard.BorderSizePixel = 0
 notificationCard.Visible = false
 notificationCard.Parent = questGui
 local notificationConstraint = Instance.new("UISizeConstraint")
-notificationConstraint.MinSize = Vector2.new(250, 132)
-notificationConstraint.MaxSize = Vector2.new(420, 132)
+notificationConstraint.MinSize = Vector2.new(230, 108)
+notificationConstraint.MaxSize = Vector2.new(380, 108)
 notificationConstraint.Parent = notificationCard
 local notificationCorner = Instance.new("UICorner")
 notificationCorner.CornerRadius = UDim.new(0, 10)
@@ -91,24 +93,24 @@ notificationCorner.Parent = notificationCard
 
 local notificationTitle = Instance.new("TextLabel")
 notificationTitle.Name = "Title"
-notificationTitle.Position = UDim2.fromOffset(14, 10)
-notificationTitle.Size = UDim2.new(1, -28, 0, 28)
+notificationTitle.Position = UDim2.fromOffset(12, 8)
+notificationTitle.Size = UDim2.new(1, -24, 0, 24)
 notificationTitle.BackgroundTransparency = 1
 notificationTitle.Font = Enum.Font.GothamBold
 notificationTitle.TextColor3 = Color3.fromRGB(226, 255, 238)
-notificationTitle.TextSize = 16
+notificationTitle.TextSize = 14
 notificationTitle.TextXAlignment = Enum.TextXAlignment.Left
 notificationTitle.TextWrapped = true
 notificationTitle.Parent = notificationCard
 
 local notificationDescription = Instance.new("TextLabel")
 notificationDescription.Name = "Description"
-notificationDescription.Position = UDim2.fromOffset(14, 40)
-notificationDescription.Size = UDim2.new(1, -28, 1, -50)
+notificationDescription.Position = UDim2.fromOffset(12, 36)
+notificationDescription.Size = UDim2.new(1, -24, 1, -44)
 notificationDescription.BackgroundTransparency = 1
 notificationDescription.Font = Enum.Font.Gotham
 notificationDescription.TextColor3 = Color3.fromRGB(239, 244, 248)
-notificationDescription.TextSize = 14
+notificationDescription.TextSize = 12
 notificationDescription.TextWrapped = true
 notificationDescription.TextXAlignment = Enum.TextXAlignment.Left
 notificationDescription.TextYAlignment = Enum.TextYAlignment.Top
@@ -121,8 +123,8 @@ local notificationVersion = 0
 local function updateQuestProgress(found: number, required: number)
 	questRequired = math.max(required, 1)
 	questFound = math.clamp(found, 0, questRequired)
-	trackerLabel.Text = string.format("Misi: Selidiki Titik Bahaya Jalan Raya [%d/%d]", questFound, questRequired)
-	trackerDetail.Text = "Periksa bukti rambu, marka zebra cross, dan penerangan jalan."
+	trackerLabel.Text = string.format("Misi: Cari 3 bukti bahaya [%d/%d]", questFound, questRequired)
+	trackerDetail.Text = "Rambu • marka • penerangan jalan"
 	if questFound >= questRequired then
 		trackerLabel.TextColor3 = Color3.fromRGB(160, 255, 192)
 	else
@@ -181,52 +183,74 @@ local panel = Instance.new("Frame")
 panel.Name = "MainPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromOffset(600, 570)
+panel.Size = UDim2.fromOffset(480, 420)
 panel.BackgroundColor3 = Color3.fromRGB(24, 35, 48)
+panel.BackgroundTransparency = 0.18
 panel.BorderSizePixel = 0
 panel.Parent = gui
 
 local panelCorner = Instance.new("UICorner")
-panelCorner.CornerRadius = UDim.new(0, 14)
+panelCorner.CornerRadius = UDim.new(0, 12)
 panelCorner.Parent = panel
 
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Color = Color3.fromRGB(220, 235, 245)
+panelStroke.Transparency = 0.78
+panelStroke.Thickness = 1
+panelStroke.Parent = panel
+
+local panelConstraint = Instance.new("UISizeConstraint")
+panelConstraint.MinSize = Vector2.new(240, 240)
+panelConstraint.MaxSize = Vector2.new(520, 460)
+panelConstraint.Parent = panel
+
 local panelPadding = Instance.new("UIPadding")
-panelPadding.PaddingLeft = UDim.new(0, 20)
-panelPadding.PaddingRight = UDim.new(0, 20)
+panelPadding.PaddingLeft = UDim.new(0, 16)
+panelPadding.PaddingRight = UDim.new(0, 16)
+panelPadding.PaddingTop = UDim.new(0, 12)
+panelPadding.PaddingBottom = UDim.new(0, 12)
 panelPadding.Parent = panel
 
-local function makeLabel(name: string, y: number, height: number, size: number): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.Position = UDim2.fromOffset(20, y)
-	label.Size = UDim2.new(1, -40, 0, height)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.Gotham
-	label.TextColor3 = Color3.fromRGB(239, 244, 248)
-	label.TextSize = size
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.TextWrapped = true
-	label.Parent = panel
-	return label
-end
+local panelLayout = Instance.new("UIListLayout")
+panelLayout.FillDirection = Enum.FillDirection.Vertical
+panelLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+panelLayout.SortOrder = Enum.SortOrder.LayoutOrder
+panelLayout.Padding = UDim.new(0, 6)
+panelLayout.Parent = panel
 
-local titleLabel = makeLabel("Title", 12, 32, 22)
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.BackgroundTransparency = 1
+header.Size = UDim2.new(1, 0, 0, 34)
+header.LayoutOrder = 1
+header.Parent = panel
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, -48, 1, 0)
+titleLabel.BackgroundTransparency = 1
 titleLabel.Font = Enum.Font.GothamBold
-titleLabel.Size = UDim2.new(1, -80, 0, 32)
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 19
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.TextYAlignment = Enum.TextYAlignment.Center
+titleLabel.TextWrapped = true
 titleLabel.Text = "CrossSafe | Design Thinking"
+titleLabel.Parent = header
 
 local closeButton = Instance.new("TextButton")
 closeButton.Name = "CloseButton"
-closeButton.Position = UDim2.new(1, -58, 0, 10)
-closeButton.Size = UDim2.fromOffset(38, 34)
+closeButton.AnchorPoint = Vector2.new(1, 0)
+closeButton.Position = UDim2.new(1, 0, 0, 0)
+closeButton.Size = UDim2.fromOffset(34, 32)
 closeButton.BackgroundColor3 = Color3.fromRGB(76, 88, 101)
+closeButton.BackgroundTransparency = 0.16
 closeButton.BorderSizePixel = 0
 closeButton.Font = Enum.Font.GothamBold
 closeButton.Text = "×"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextSize = 22
-closeButton.Parent = panel
+closeButton.Parent = header
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 8)
 closeCorner.Parent = closeButton
@@ -234,38 +258,104 @@ closeButton.Activated:Connect(function()
 	gui.Enabled = false
 end)
 
-local budgetLabel = makeLabel("Budget", 46, 25, 16)
+local function makeLabel(name: string, height: number, size: number, order: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.Name = name
+	label.Size = UDim2.new(1, 0, 0, height)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.Gotham
+	label.TextColor3 = Color3.fromRGB(239, 244, 248)
+	label.TextSize = size
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextWrapped = true
+	label.LayoutOrder = order
+	label.Parent = panel
+	return label
+end
+
+local budgetLabel = makeLabel("Budget", 22, 15, 2)
 budgetLabel.TextColor3 = Color3.fromRGB(255, 218, 105)
 
-local stageLabel = makeLabel("Stage", 74, 26, 16)
+local stageLabel = makeLabel("Stage", 24, 15, 3)
 stageLabel.Font = Enum.Font.GothamSemibold
 
-local promptLabel = makeLabel("Prompt", 104, 205, 16)
-promptLabel.TextYAlignment = Enum.TextYAlignment.Top
+local promptFrame = Instance.new("ScrollingFrame")
+promptFrame.Name = "PromptScroll"
+promptFrame.Size = UDim2.new(1, 0, 0, 112)
+promptFrame.BackgroundColor3 = Color3.fromRGB(13, 22, 32)
+promptFrame.BackgroundTransparency = 0.3
+promptFrame.BorderSizePixel = 0
+promptFrame.ScrollBarThickness = 4
+promptFrame.ScrollBarImageTransparency = 0.45
+promptFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+promptFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+promptFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+promptFrame.LayoutOrder = 4
+promptFrame.Parent = panel
+local promptCorner = Instance.new("UICorner")
+promptCorner.CornerRadius = UDim.new(0, 8)
+promptCorner.Parent = promptFrame
+local promptPadding = Instance.new("UIPadding")
+promptPadding.PaddingLeft = UDim.new(0, 10)
+promptPadding.PaddingRight = UDim.new(0, 10)
+promptPadding.PaddingTop = UDim.new(0, 8)
+promptPadding.PaddingBottom = UDim.new(0, 8)
+promptPadding.Parent = promptFrame
 
-local statusLabel = makeLabel("Status", 312, 34, 14)
+local promptLabel = Instance.new("TextLabel")
+promptLabel.Name = "Prompt"
+promptLabel.Position = UDim2.fromOffset(0, 0)
+promptLabel.Size = UDim2.new(1, -4, 0, 0)
+promptLabel.AutomaticSize = Enum.AutomaticSize.Y
+promptLabel.BackgroundTransparency = 1
+promptLabel.Font = Enum.Font.Gotham
+promptLabel.TextColor3 = Color3.fromRGB(239, 244, 248)
+promptLabel.TextSize = 16
+promptLabel.TextXAlignment = Enum.TextXAlignment.Left
+promptLabel.TextYAlignment = Enum.TextYAlignment.Top
+promptLabel.TextWrapped = true
+promptLabel.Parent = promptFrame
+
+local statusLabel = makeLabel("Status", 34, 14, 5)
 statusLabel.TextColor3 = Color3.fromRGB(170, 205, 225)
 
-local function makeChoiceButton(name: string, y: number): TextButton
+local choiceFrame = Instance.new("Frame")
+choiceFrame.Name = "Choices"
+choiceFrame.Size = UDim2.new(1, 0, 0, 140)
+choiceFrame.BackgroundTransparency = 1
+choiceFrame.ClipsDescendants = true
+choiceFrame.LayoutOrder = 6
+choiceFrame.Parent = panel
+
+local choiceLayout = Instance.new("UIListLayout")
+choiceLayout.FillDirection = Enum.FillDirection.Vertical
+choiceLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+choiceLayout.SortOrder = Enum.SortOrder.LayoutOrder
+choiceLayout.Padding = UDim.new(0, 8)
+choiceLayout.Parent = choiceFrame
+
+local function makeChoiceButton(name: string, order: number): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
-	button.Position = UDim2.fromOffset(20, y)
-	button.Size = UDim2.new(1, -40, 0, 78)
+	button.Size = UDim2.new(1, 0, 0, 64)
 	button.BackgroundColor3 = Color3.fromRGB(48, 104, 140)
+	button.BackgroundTransparency = 0.08
 	button.BorderSizePixel = 0
 	button.AutoButtonColor = true
 	button.Font = Enum.Font.GothamSemibold
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.TextSize = 16
+	button.TextSize = 15
 	button.TextWrapped = true
 	button.TextXAlignment = Enum.TextXAlignment.Left
 	button.TextYAlignment = Enum.TextYAlignment.Center
+	button.LayoutOrder = order
 	button.Visible = false
-	button.Parent = panel
+	button.Parent = choiceFrame
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 14)
-	padding.PaddingRight = UDim.new(0, 14)
+	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingRight = UDim.new(0, 12)
 	padding.Parent = button
 
 	local corner = Instance.new("UICorner")
@@ -275,12 +365,85 @@ local function makeChoiceButton(name: string, y: number): TextButton
 end
 
 local choiceButtons = {
-	makeChoiceButton("Choice1", 354),
-	makeChoiceButton("Choice2", 442),
+	makeChoiceButton("Choice1", 1),
+	makeChoiceButton("Choice2", 2),
 }
-local startSessionButton = makeChoiceButton("StartSession", 354)
+local startSessionButton = makeChoiceButton("StartSession", 1)
 startSessionButton.Text = "Mulai diskusi bersama Rani"
 startSessionButton.Visible = false
+
+local function updateResponsiveLayout()
+	local camera = workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	local landscape = viewport.X > viewport.Y
+	local compact = viewport.X < 760 or viewport.Y < 640
+	local veryShort = viewport.Y < 360
+	local tiny = viewport.Y < 280
+
+	local widthScale = if landscape then 0.78 else 0.92
+	local heightScale = if landscape then 0.9 else 0.58
+	local panelWidth = math.clamp(viewport.X * widthScale, 240, 520)
+	local panelHeight = math.clamp(viewport.Y * heightScale, 220, 440)
+	panel.Size = UDim2.fromOffset(math.floor(panelWidth), math.floor(panelHeight))
+
+	local padding = if tiny then 6 elseif veryShort then 8 elseif compact then 10 else 16
+	local gap = if tiny then 3 elseif compact then 4 else 6
+	panelPadding.PaddingLeft = UDim.new(0, padding)
+	panelPadding.PaddingRight = UDim.new(0, padding)
+	panelPadding.PaddingTop = UDim.new(0, padding)
+	panelPadding.PaddingBottom = UDim.new(0, padding)
+	panelLayout.Padding = UDim.new(0, gap)
+	choiceLayout.Padding = UDim.new(0, if compact then 5 else 8)
+
+	local headerHeight = if tiny then 22 elseif veryShort then 24 elseif compact then 28 else 32
+	local budgetHeight = if tiny then 14 elseif veryShort then 16 elseif compact then 18 else 20
+	local stageHeight = if tiny then 16 elseif veryShort then 18 elseif compact then 20 else 22
+	local promptHeight = if tiny then 32 elseif veryShort then 48 elseif compact then 72 else 108
+	local statusHeight = if tiny then 18 elseif veryShort then 22 elseif compact then 28 else 32
+	local choiceHeight = if tiny then 88 elseif veryShort then 100 elseif compact then 122 else 132
+	local buttonHeight = if tiny then 40 elseif veryShort then 46 elseif compact then 56 else 60
+	local buttonTextSize = if tiny then 11 elseif compact then 13 else 15
+
+	header.Size = UDim2.new(1, 0, 0, headerHeight)
+	titleLabel.Size = UDim2.new(1, -(if compact then 40 else 48), 1, 0)
+	titleLabel.TextSize = if compact then 16 else 19
+	closeButton.Size = UDim2.fromOffset(if compact then 30 else 34, if compact then 28 else 32)
+	budgetLabel.Size = UDim2.new(1, 0, 0, budgetHeight)
+	budgetLabel.TextSize = if compact then 12 else 15
+	stageLabel.Size = UDim2.new(1, 0, 0, stageHeight)
+	stageLabel.TextSize = if compact then 13 else 15
+	promptFrame.Size = UDim2.new(1, 0, 0, promptHeight)
+	promptLabel.TextSize = if tiny then 12 elseif compact then 14 else 16
+	promptFrame.ScrollBarThickness = if compact then 3 else 4
+	statusLabel.Size = UDim2.new(1, 0, 0, statusHeight)
+	statusLabel.TextSize = if compact then 12 else 14
+	choiceFrame.Size = UDim2.new(1, 0, 0, choiceHeight)
+	for _, button in ipairs(choiceButtons) do
+		button.Size = UDim2.new(1, 0, 0, buttonHeight)
+		button.TextSize = buttonTextSize
+	end
+	startSessionButton.Size = UDim2.new(1, 0, 0, buttonHeight)
+	startSessionButton.TextSize = buttonTextSize
+end
+
+local viewportConnection: RBXScriptConnection? = nil
+local function bindViewportListener()
+	if viewportConnection then
+		viewportConnection:Disconnect()
+		viewportConnection = nil
+	end
+	local camera = workspace.CurrentCamera
+	if camera then
+		viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveLayout)
+	end
+	updateResponsiveLayout()
+end
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindViewportListener)
+bindViewportListener()
+
+gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+	trackerFrame.Visible = not gui.Enabled
+end)
 
 local clickHandlers: { [number]: (() -> ()) } = {}
 for index, button in ipairs(choiceButtons) do
@@ -308,6 +471,7 @@ end
 
 local function showRaniDialogue(found: number, required: number, canStart: boolean)
 	gui.Enabled = true
+	promptFrame.CanvasPosition = Vector2.zero
 	activeNodeKey = nil
 	activeVoteToken = nil
 	clearChoices()
@@ -385,6 +549,7 @@ end
 
 local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget: number, stage: number, voteToken: number?)
 	gui.Enabled = true
+	promptFrame.CanvasPosition = Vector2.zero
 	local node = DecisionTreeData.Nodes[nodeKey]
 	if not node then
 		statusLabel.Text = "Node tidak ditemukan: " .. nodeKey
@@ -413,6 +578,7 @@ end
 
 local function renderReport(report: any, budget: number)
 	gui.Enabled = true
+	promptFrame.CanvasPosition = Vector2.zero
 	activeNodeKey = nil
 	activeVoteToken = nil
 	clearChoices()
@@ -441,6 +607,7 @@ end
 
 local function renderIteration(actions: { string }, budget: number, mustDeepPivot: boolean, voteToken: number?)
 	gui.Enabled = true
+	promptFrame.CanvasPosition = Vector2.zero
 	activeNodeKey = nil
 	setBudget(budget)
 	stageLabel.Text = "Tahap Iterasi | Voting Tim"
