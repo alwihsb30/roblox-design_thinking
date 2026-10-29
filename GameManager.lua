@@ -1,11 +1,10 @@
 --!strict
--- Script di ServerScriptService. Otoritas tunggal untuk alur permainan, voting, saldo, dan iterasi.
+-- Script server otoritatif: mengelola pilihan individu, saldo, misi, evaluasi, dan iterasi.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeData"))
-local VotingHandler = require(script.Parent:WaitForChild("VotingHandler"))
 local EvaluationService = require(script.Parent:WaitForChild("EvaluationService"))
 local ClueQuestManager = require(script.Parent:WaitForChild("ClueQuestManager"))
 local SpatialMissionManager = require(script.Parent:WaitForChild("SpatialMissionManager"))
@@ -61,9 +60,9 @@ type TransactionRecord = {
 }
 
 local NetFolder = getOrCreateFolder(ReplicatedStorage, "GameNetwork")
-local SubmitVoteEvent = getOrCreateRemoteEvent(NetFolder, "SubmitVote")
+local SubmitChoiceEvent = getOrCreateRemoteEvent(NetFolder, "SubmitChoice")
 local SyncGameStateEvent = getOrCreateRemoteEvent(NetFolder, "SyncGameState")
-local TriggerIterationEvent = getOrCreateRemoteEvent(NetFolder, "TriggerIteration")
+local ChooseIterationEvent = getOrCreateRemoteEvent(NetFolder, "ChooseIteration")
 local StartSessionEvent = getOrCreateRemoteEvent(NetFolder, "StartSession")
 local GetGameStateFunction = getOrCreateRemoteFunction(NetFolder, "GetGameState")
 ClueQuestManager.Initialize(SyncGameStateEvent)
@@ -83,6 +82,8 @@ local GameSession = {
 
 local RaniPromptPart: BasePart? = nil
 local RaniPrompt: ProximityPrompt? = nil
+local sessionPlayer: Player? = nil
+local needsSessionReset = false
 
 local function getRaniPromptPart(npc: Instance): BasePart?
 	local head = npc:FindFirstChild("Head", true)
@@ -138,6 +139,9 @@ local function setupRaniPrompt(npc: Instance)
 	RaniPrompt = talkPrompt
 
 	talkPrompt.Triggered:Connect(function(player: Player)
+		if sessionPlayer ~= player then
+			return
+		end
 		if GameSession.Phase == "WAITING_FOR_RANI" then
 			local foundCount, requiredCount = ClueQuestManager.GetProgress()
 			if ClueQuestManager.IsComplete() then
@@ -193,7 +197,7 @@ local function getNodeChoiceKeys(nodeKey: string, budget: number): { string }
 				table.insert(available, choiceKey)
 			end
 		elseif DecisionTreeData.Nodes[choice.NextNode] then
-			-- Saring cabang yang berujung pada prototipe di luar saldo agar tim tidak terkunci.
+			-- Saring cabang yang berujung pada prototipe di luar saldo agar pemain tidak terkunci.
 			if getNodeChoiceKeys(choice.NextNode, budget)[1] then
 				table.insert(available, choiceKey)
 			end
@@ -215,8 +219,7 @@ local function sendPrompt(targetPlayer: Player?)
 			GameSession.ActiveNodeKey,
 			allowedChoiceKeys,
 			GameSession.Budget,
-			GameSession.CurrentStage,
-			VotingHandler.GetActiveToken()
+			GameSession.CurrentStage
 		)
 	else
 		SyncGameStateEvent:FireAllClients(
@@ -224,8 +227,7 @@ local function sendPrompt(targetPlayer: Player?)
 			GameSession.ActiveNodeKey,
 			allowedChoiceKeys,
 			GameSession.Budget,
-			GameSession.CurrentStage,
-			VotingHandler.GetActiveToken()
+			GameSession.CurrentStage
 		)
 	end
 end
@@ -353,16 +355,16 @@ local function recordTransaction(action: TransactionAction, itemKey: string, amo
 	return true
 end
 
-local startVoting: () -> ()
-local processWinningChoice: (string) -> ()
-local startIterationVoting: () -> ()
+local presentDecision: (Player?) -> ()
+local processSelectedChoice: (string) -> ()
+local presentIterationDecision: (Player?) -> ()
 
 local function publishReport(report: any)
 	GameSession.LatestReport = report
 	GameSession.Phase = if report.CanQuickPatch or report.CanDeepPivot then "ITERATION" else "COMPLETE"
 	SyncGameStateEvent:FireAllClients("SHOW_EVALUATION_REPORT", report, GameSession.Budget)
 	if GameSession.Phase == "ITERATION" then
-		startIterationVoting()
+		presentIterationDecision(nil)
 	end
 end
 
@@ -400,7 +402,7 @@ local function finishPrototypePurchase(prototypeKey: string)
 	local prototype = DecisionTreeData.Prototypes[prototypeKey]
 	local node = DecisionTreeData.Nodes[GameSession.ActiveNodeKey]
 	if not prototype or not node or node.Stage ~= 4 or not node.Choices[prototypeKey] then
-		warn("VotingHandler mengembalikan prototipe yang tidak sah untuk node aktif.")
+		warn("Pilihan prototipe tidak sah untuk node aktif.")
 		return
 	end
 	if prototype.ParentChoiceId ~= GameSession.PathChoices[3] then
@@ -409,18 +411,18 @@ local function finishPrototypePurchase(prototypeKey: string)
 	end
 	if prototype.Cost > GameSession.Budget then
 		SyncGameStateEvent:FireAllClients("BUDGET_REJECTED", GameSession.Budget, prototype.Cost)
-		startVoting()
+		presentDecision(nil)
 		return
 	end
 	local worldReady, setupMessage = SpatialMissionManager.CanRunTestingSimulation()
 	if not worldReady then
 		SyncGameStateEvent:FireAllClients("MISSION_SETUP_MISSING", setupMessage)
-		startVoting()
+		presentDecision(nil)
 		return
 	end
 	if not recordTransaction("PURCHASE", prototypeKey, prototype.Cost) then
 		SyncGameStateEvent:FireAllClients("BUDGET_REJECTED", GameSession.Budget, prototype.Cost)
-		startVoting()
+		presentDecision(nil)
 		return
 	end
 
@@ -434,26 +436,26 @@ local function finishPrototypePurchase(prototypeKey: string)
 	end
 end
 
-processWinningChoice = function(winningChoice: string)
+processSelectedChoice = function(selectedChoiceKey: string)
 	if GameSession.Phase ~= "DECISIONS" then
 		return
 	end
 	local node = DecisionTreeData.Nodes[GameSession.ActiveNodeKey]
-	local choice = node and node.Choices[winningChoice]
+	local choice = node and node.Choices[selectedChoiceKey]
 	if not node or not choice then
-		warn(string.format("Pilihan pemenang %s bukan bagian dari node aktif.", tostring(winningChoice)))
-		startVoting()
+		warn(string.format("Pilihan %s bukan bagian dari node aktif.", tostring(selectedChoiceKey)))
+		presentDecision(nil)
 		return
 	end
-	if not table.find(getNodeChoiceKeys(GameSession.ActiveNodeKey, GameSession.Budget), winningChoice) then
-		warn("Pilihan pemenang tidak lagi terjangkau dengan saldo saat ini.")
-		startVoting()
+	if not table.find(getNodeChoiceKeys(GameSession.ActiveNodeKey, GameSession.Budget), selectedChoiceKey) then
+		warn("Pilihan tidak lagi terjangkau dengan saldo saat ini.")
+		presentDecision(nil)
 		return
 	end
 
 	if GameSession.CurrentStage <= 3 then
 		local completedStage = GameSession.CurrentStage
-		table.insert(GameSession.PathChoices, winningChoice)
+		table.insert(GameSession.PathChoices, selectedChoiceKey)
 		GameSession.CurrentStage += 1
 		GameSession.ActiveNodeKey = choice.NextNode
 		if completedStage == 1 then
@@ -461,36 +463,28 @@ processWinningChoice = function(winningChoice: string)
 		elseif completedStage == 2 then
 			beginBlueprintMission()
 		else
-			startVoting()
+			presentDecision(nil)
 		end
 	elseif GameSession.CurrentStage == 4 then
-		finishPrototypePurchase(winningChoice)
+		finishPrototypePurchase(selectedChoiceKey)
 	end
 end
 
-startVoting = function()
-	if GameSession.Phase ~= "DECISIONS" or #Players:GetPlayers() == 0 or VotingHandler.IsActive() then
+presentDecision = function(targetPlayer: Player?)
+	if GameSession.Phase ~= "DECISIONS" or #Players:GetPlayers() == 0 then
 		return
 	end
 	local allowedChoiceKeys = getNodeChoiceKeys(GameSession.ActiveNodeKey, GameSession.Budget)
 	if #allowedChoiceKeys == 0 then
 		warn("Tidak ada prototipe yang terjangkau dari node aktif. Periksa logika anggaran pohon keputusan.")
-		SyncGameStateEvent:FireAllClients("NO_AFFORDABLE_PROTOTYPE", GameSession.Budget)
+		if targetPlayer then
+			SyncGameStateEvent:FireClient(targetPlayer, "NO_AFFORDABLE_PROTOTYPE", GameSession.Budget)
+		else
+			SyncGameStateEvent:FireAllClients("NO_AFFORDABLE_PROTOTYPE", GameSession.Budget)
+		end
 		return
 	end
-	local started = VotingHandler.StartSession(
-		GameSession.ActiveNodeKey,
-		DecisionTreeData.Constants.VoteDurationSeconds,
-		allowedChoiceKeys,
-		function(winningChoice: string?)
-			if GameSession.Phase == "DECISIONS" and winningChoice then
-				processWinningChoice(winningChoice)
-			end
-		end
-	)
-	if started then
-		sendPrompt(nil)
-	end
+	sendPrompt(targetPlayer)
 end
 
 local function deepPivot()
@@ -503,7 +497,6 @@ local function deepPivot()
 		return
 	end
 
-	VotingHandler.CancelSession()
 	GameSession.PivotCount += 1
 	GameSession.PathChoices = { "1.B" }
 	GameSession.CurrentStage = 2
@@ -540,14 +533,20 @@ local function sendIterationPrompt(targetPlayer: Player?)
 	end
 	local report = GameSession.LatestReport
 	if targetPlayer then
-		SyncGameStateEvent:FireClient(targetPlayer, "PROMPT_ITERATION", actions, GameSession.Budget, report and report.MustDeepPivot == true, VotingHandler.GetActiveToken())
+		SyncGameStateEvent:FireClient(targetPlayer, "PROMPT_ITERATION", actions, GameSession.Budget, report and report.MustDeepPivot == true)
 	else
-		SyncGameStateEvent:FireAllClients("PROMPT_ITERATION", actions, GameSession.Budget, report and report.MustDeepPivot == true, VotingHandler.GetActiveToken())
+		SyncGameStateEvent:FireAllClients("PROMPT_ITERATION", actions, GameSession.Budget, report and report.MustDeepPivot == true)
 	end
 end
 
-local function applyIteration(iterationType: string)
+local function applyIteration(iterationType: string, player: Player)
 	if GameSession.Phase ~= "ITERATION" then
+		SyncGameStateEvent:FireClient(player, "ITERATION_REJECTED", "ITERATION_UNAVAILABLE")
+		return
+	end
+	if not table.find(getIterationActionKeys(), iterationType) then
+		SyncGameStateEvent:FireClient(player, "ITERATION_REJECTED", "ITERATION_UNAVAILABLE")
+		sendIterationPrompt(player)
 		return
 	end
 	local report = evaluateCurrentSession()
@@ -574,8 +573,8 @@ local function applyIteration(iterationType: string)
 	end
 end
 
-startIterationVoting = function()
-	if GameSession.Phase ~= "ITERATION" or #Players:GetPlayers() == 0 or VotingHandler.IsActive() then
+presentIterationDecision = function(targetPlayer: Player?)
+	if GameSession.Phase ~= "ITERATION" or #Players:GetPlayers() == 0 then
 		return
 	end
 	local allowedActions = getIterationActionKeys()
@@ -583,18 +582,7 @@ startIterationVoting = function()
 		GameSession.Phase = "COMPLETE"
 		return
 	end
-	local started = VotingHandler.StartIterationSession(
-		DecisionTreeData.Constants.VoteDurationSeconds,
-		allowedActions,
-		function(winningAction: string?)
-			if GameSession.Phase == "ITERATION" and winningAction then
-				applyIteration(winningAction)
-			end
-		end
-	)
-	if started then
-		sendIterationPrompt(nil)
-	end
+	sendIterationPrompt(targetPlayer)
 end
 
 local function copyLedger(): { TransactionRecord }
@@ -605,25 +593,25 @@ local function copyLedger(): { TransactionRecord }
 	return copy
 end
 
-local function handleIterationVote(player: Player, voteToken: any, iterationType: any)
-	if GameSession.Phase ~= "ITERATION" or typeof(voteToken) ~= "number" or typeof(iterationType) ~= "string" then
-		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "ITERATION_VOTE_UNAVAILABLE")
+local function handleIterationChoice(player: Player, iterationType: any)
+	if sessionPlayer ~= player then
+		SyncGameStateEvent:FireClient(player, "SOLO_SERVER_REQUIRED")
 		return
 	end
-	if VotingHandler.CastVote(player, "ITERATION", voteToken, iterationType) then
-		SyncGameStateEvent:FireClient(player, "VOTE_ACCEPTED", "ITERATION", iterationType)
-	else
-		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "STALE_OR_INVALID_ITERATION")
+	if GameSession.Phase ~= "ITERATION" or typeof(iterationType) ~= "string" then
+		SyncGameStateEvent:FireClient(player, "ITERATION_REJECTED", "ITERATION_UNAVAILABLE")
+		return
 	end
+	applyIteration(iterationType, player)
 end
 
 local function handleSpatialMissionCompleted(missionKey: string, _player: Player, _detail: string?)
 	if missionKey == "WAR_ROOM" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 2 then
 		GameSession.Phase = "DECISIONS"
-		startVoting()
+		presentDecision(nil)
 	elseif missionKey == "BLUEPRINT" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 3 then
 		GameSession.Phase = "DECISIONS"
-		startVoting()
+		presentDecision(nil)
 	elseif missionKey == "ASSEMBLY" and GameSession.Phase == "MISSION" and GameSession.CurrentStage == 4 then
 		local prototype = DecisionTreeData.Prototypes[GameSession.SelectedPrototypeKey]
 		if not prototype then
@@ -639,6 +627,10 @@ end
 SpatialMissionManager.Initialize(SyncGameStateEvent, handleSpatialMissionCompleted)
 
 StartSessionEvent.OnServerEvent:Connect(function(player: Player)
+	if sessionPlayer ~= player then
+		SyncGameStateEvent:FireClient(player, "SOLO_SERVER_REQUIRED")
+		return
+	end
 	if not isPlayerNearRani(player) then
 		SyncGameStateEvent:FireClient(player, "START_REJECTED", "DEKATI_RANI")
 		return
@@ -659,26 +651,32 @@ StartSessionEvent.OnServerEvent:Connect(function(player: Player)
 
 	GameSession.Phase = "DECISIONS"
 	SyncGameStateEvent:FireClient(player, "SESSION_STARTED")
-	startVoting()
+	presentDecision(player)
 end)
 
-SubmitVoteEvent.OnServerEvent:Connect(function(player: Player, nodeKey: any, voteToken: any, choiceKey: any)
-	if typeof(nodeKey) ~= "string" or typeof(voteToken) ~= "number" or typeof(choiceKey) ~= "string" then
-		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "INVALID_PAYLOAD")
+SubmitChoiceEvent.OnServerEvent:Connect(function(player: Player, nodeKey: any, choiceKey: any)
+	if sessionPlayer ~= player then
+		SyncGameStateEvent:FireClient(player, "SOLO_SERVER_REQUIRED")
 		return
 	end
-	if GameSession.Phase ~= "DECISIONS" then
-		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "WORLD_MISSION_GATE")
+	if typeof(nodeKey) ~= "string" or typeof(choiceKey) ~= "string"
+		or GameSession.Phase ~= "DECISIONS"
+		or nodeKey ~= GameSession.ActiveNodeKey then
+		SyncGameStateEvent:FireClient(player, "CHOICE_REJECTED", "INVALID_OR_STALE_CHOICE")
+		if GameSession.Phase == "DECISIONS" then
+			sendPrompt(player)
+		end
 		return
 	end
-	if VotingHandler.CastVote(player, nodeKey, voteToken, choiceKey) then
-		SyncGameStateEvent:FireClient(player, "VOTE_ACCEPTED", nodeKey, choiceKey)
-	else
-		SyncGameStateEvent:FireClient(player, "VOTE_REJECTED", "STALE_OR_INVALID_CHOICE")
+	if not table.find(getNodeChoiceKeys(GameSession.ActiveNodeKey, GameSession.Budget), choiceKey) then
+		SyncGameStateEvent:FireClient(player, "CHOICE_REJECTED", "CHOICE_UNAVAILABLE")
+		sendPrompt(player)
+		return
 	end
+	processSelectedChoice(choiceKey)
 end)
 
-TriggerIterationEvent.OnServerEvent:Connect(handleIterationVote)
+ChooseIterationEvent.OnServerEvent:Connect(handleIterationChoice)
 
 GetGameStateFunction.OnServerInvoke = function(_player: Player)
 	local clueCount, cluesRequired = ClueQuestManager.GetProgress()
@@ -687,7 +685,6 @@ GetGameStateFunction.OnServerInvoke = function(_player: Player)
 		Phase = GameSession.Phase,
 		CurrentStage = GameSession.CurrentStage,
 		ActiveNodeKey = GameSession.ActiveNodeKey,
-		VoteToken = VotingHandler.GetActiveToken(),
 		AllowedChoiceKeys = if GameSession.Phase == "DECISIONS" then getNodeChoiceKeys(GameSession.ActiveNodeKey, GameSession.Budget) else {},
 		AllowedIterationActions = if GameSession.Phase == "ITERATION" then getIterationActionKeys() else {},
 		Budget = GameSession.Budget,
@@ -708,41 +705,64 @@ GetGameStateFunction.OnServerInvoke = function(_player: Player)
 	}
 end
 
+local function resetGameSession()
+	GameSession.CurrentStage = 1
+	GameSession.ActiveNodeKey = DecisionTreeData.Constants.RootNode
+	table.clear(GameSession.PathChoices)
+	GameSession.SelectedPrototypeKey = ""
+	GameSession.Budget = DecisionTreeData.Constants.InitialBudget
+	table.clear(GameSession.Ledger)
+	GameSession.Phase = "WAITING_FOR_RANI"
+	GameSession.IsPatched = false
+	GameSession.LatestReport = nil
+	GameSession.PivotCount = 0
+	destroyMountedModels()
+	ClueQuestManager.Reset()
+	SpatialMissionManager.ResetSession()
+end
+
 Players.PlayerAdded:Connect(function(player: Player)
+	if sessionPlayer and sessionPlayer ~= player then
+		player:Kick("CrossSafe dirancang untuk satu pemain per server. Atur kapasitas server menjadi 1 pemain.")
+		return
+	end
+	if needsSessionReset then
+		resetGameSession()
+		needsSessionReset = false
+	end
+	sessionPlayer = player
+
 	task.defer(function()
+		if player.Parent ~= Players or sessionPlayer ~= player then
+			return
+		end
 		ClueQuestManager.SendProgress(player)
 		if GameSession.CurrentStage >= 2 or GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
 			SpatialMissionManager.SendState(player)
 		end
 		if GameSession.Phase == "DECISIONS" then
-			if not VotingHandler.IsActive() then
-				startVoting()
-			else
-				sendPrompt(player)
-			end
+			sendPrompt(player)
 		elseif GameSession.Phase == "MISSION" or GameSession.Phase == "SIMULATION" then
 			return
 		elseif GameSession.LatestReport then
 			SyncGameStateEvent:FireClient(player, "SHOW_EVALUATION_REPORT", GameSession.LatestReport, GameSession.Budget)
 			if GameSession.Phase == "ITERATION" then
-				if not VotingHandler.IsActive() then
-					startIterationVoting()
-				else
-					sendIterationPrompt(player)
-				end
+				sendIterationPrompt(player)
 			end
 		end
 	end)
 end)
 
-Players.PlayerRemoving:Connect(function(_player: Player)
-	-- Pertahankan sesi tim ketika sebagian anggota keluar. Jika server kosong, jeda voting sampai ada pemain lagi.
+Players.PlayerRemoving:Connect(function(player: Player)
+	if sessionPlayer ~= player then
+		return
+	end
+	sessionPlayer = nil
+	needsSessionReset = true
 	task.defer(function()
-		if #Players:GetPlayers() == 0 then
-			VotingHandler.CancelSession()
+		if sessionPlayer == nil and #Players:GetPlayers() == 0 and needsSessionReset then
+			resetGameSession()
+			needsSessionReset = false
 		end
 	end)
 end)
-
--- Voting sengaja tidak dimulai saat server boot. Pemain memulai sesi dengan berbicara kepada Rani.
-
