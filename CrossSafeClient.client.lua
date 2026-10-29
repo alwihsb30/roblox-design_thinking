@@ -1,6 +1,6 @@
 --!strict
--- Starter LocalScript untuk UI prototipe CrossSafe.
--- Letakkan di StarterGui. UI dibuat lewat kode agar alur voting dapat langsung dicoba.
+-- Starter LocalScript untuk UI CrossSafe.
+-- Letakkan di StarterGui. Pilihan pemain dikirim langsung ke server.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,8 +11,8 @@ local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeDat
 
 local network = ReplicatedStorage:WaitForChild("GameNetwork")
 local syncEvent = network:WaitForChild("SyncGameState") :: RemoteEvent
-local submitVoteEvent = network:WaitForChild("SubmitVote") :: RemoteEvent
-local iterationEvent = network:WaitForChild("TriggerIteration") :: RemoteEvent
+local submitChoiceEvent = network:WaitForChild("SubmitChoice") :: RemoteEvent
+local chooseIterationEvent = network:WaitForChild("ChooseIteration") :: RemoteEvent
 local startSessionEvent = network:WaitForChild("StartSession") :: RemoteEvent
 local getGameState = network:WaitForChild("GetGameState") :: RemoteFunction
 
@@ -21,9 +21,9 @@ type ButtonOption = {
 	Text: string,
 }
 
-type ChoiceHandler = (string, number) -> ()
+type ChoiceHandler = (string) -> ()
 
--- Quest HUD terpisah dari panel voting, jadi progres misi terlihat saat panel diskusi tertutup.
+-- Quest HUD terpisah dari panel pilihan, jadi progres misi terlihat saat panel ditutup.
 local questGui = Instance.new("ScreenGui")
 questGui.Name = "CrossSafeQuestGui"
 questGui.ResetOnSpawn = false
@@ -369,7 +369,7 @@ local choiceButtons = {
 	makeChoiceButton("Choice2", 2),
 }
 local startSessionButton = makeChoiceButton("StartSession", 1)
-startSessionButton.Text = "Mulai diskusi bersama Rani"
+startSessionButton.Text = "Mulai sesi bersama Rani"
 startSessionButton.Visible = false
 
 local function updateResponsiveLayout()
@@ -456,9 +456,6 @@ for index, button in ipairs(choiceButtons) do
 	end)
 end
 
-local activeNodeKey: string? = nil
-local activeVoteToken: number? = nil
-
 local function clearChoices()
 	for index, button in ipairs(choiceButtons) do
 		button.Visible = false
@@ -472,15 +469,13 @@ end
 local function showRaniDialogue(found: number, required: number, canStart: boolean)
 	gui.Enabled = true
 	promptFrame.CanvasPosition = Vector2.zero
-	activeNodeKey = nil
-	activeVoteToken = nil
 	clearChoices()
 	titleLabel.Text = "CrossSafe | Bicara dengan Rani"
 	budgetLabel.Text = ""
 	stageLabel.Text = "Empathize — dengarkan pengguna"
 	if canStart then
-		promptLabel.Text = "Rani: Terima kasih sudah memeriksa titik-titik bahaya itu. Sekarang kita bisa mulai diskusi untuk mencari solusi yang aman."
-		statusLabel.Text = "Semua bukti terkumpul. Pilih Mulai diskusi untuk membuka Tahap 1."
+		promptLabel.Text = "Rani: Terima kasih sudah memeriksa titik-titik bahaya itu. Sekarang kita bisa mencari solusi yang aman berdasarkan temuanmu."
+		statusLabel.Text = "Semua bukti terkumpul. Pilih Mulai sesi untuk memulai Tahap 1."
 		startSessionButton.Visible = true
 		startSessionButton.Active = true
 	else
@@ -489,7 +484,7 @@ local function showRaniDialogue(found: number, required: number, canStart: boole
 			found,
 			required
 		)
-		statusLabel.Text = "Cari dan periksa ketiga titik bukti di sekitar jalan sebelum memulai diskusi."
+		statusLabel.Text = "Cari dan periksa ketiga titik bukti di sekitar jalan sebelum memulai sesi."
 		startSessionButton.Visible = false
 		startSessionButton.Active = false
 	end
@@ -517,16 +512,11 @@ local function formatRupiah(amount: number): string
 end
 
 local function setBudget(amount: number)
-	budgetLabel.Text = "Modal tim: " .. formatRupiah(amount)
+	budgetLabel.Text = "Modalmu: " .. formatRupiah(amount)
 end
 
-local function renderOptions(options: { ButtonOption }, voteToken: number?, handler: ChoiceHandler)
+local function renderOptions(options: { ButtonOption }, handler: ChoiceHandler)
 	clearChoices()
-	if voteToken == nil then
-		statusLabel.Text = "Menunggu server membuka voting..."
-		return
-	end
-	activeVoteToken = voteToken
 	for index, option in ipairs(options) do
 		local button = choiceButtons[index]
 		if not button then
@@ -537,17 +527,14 @@ local function renderOptions(options: { ButtonOption }, voteToken: number?, hand
 		button.Visible = true
 		button.Active = true
 		clickHandlers[index] = function()
-			if activeVoteToken ~= voteToken then
-				return
-			end
 			clearChoices()
-			statusLabel.Text = "Suara tercatat. Menunggu keputusan tim..."
-			handler(optionId, voteToken)
+			statusLabel.Text = "Pilihanmu disimpan. Lanjutkan misi."
+			handler(optionId)
 		end
 	end
 end
 
-local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget: number, stage: number, voteToken: number?)
+local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget: number, stage: number)
 	gui.Enabled = true
 	promptFrame.CanvasPosition = Vector2.zero
 	local node = DecisionTreeData.Nodes[nodeKey]
@@ -556,8 +543,6 @@ local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget
 		clearChoices()
 		return
 	end
-	activeNodeKey = nodeKey
-	activeVoteToken = voteToken
 	setBudget(budget)
 	stageLabel.Text = string.format("Tahap %d | %s", stage, ({ "Empathize", "Define", "Ideate", "Prototype" })[stage] or "CrossSafe")
 	promptLabel.Text = node.Prompt
@@ -568,19 +553,15 @@ local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget
 			table.insert(options, { Id = choiceKey, Text = choice.Text })
 		end
 	end
-	renderOptions(options, voteToken, function(choiceKey: string, token: number)
-		submitVoteEvent:FireServer(nodeKey, token, choiceKey)
+	renderOptions(options, function(choiceKey: string)
+		submitChoiceEvent:FireServer(nodeKey, choiceKey)
 	end)
-	if voteToken then
-		statusLabel.Text = string.format("Voting aktif — diskusi tim dan pilih opsi (%d detik).", DecisionTreeData.Constants.VoteDurationSeconds)
-	end
+	statusLabel.Text = "Pilih jawaban berdasarkan bukti dan kebutuhan Rani."
 end
 
 local function renderReport(report: any, budget: number)
 	gui.Enabled = true
 	promptFrame.CanvasPosition = Vector2.zero
-	activeNodeKey = nil
-	activeVoteToken = nil
 	clearChoices()
 	setBudget(budget)
 	stageLabel.Text = string.format("Laporan desain | %s", report.SafetyStatus)
@@ -595,24 +576,23 @@ local function renderReport(report: any, budget: number)
 		report.RaniStatement
 	)
 	if report.MustDeepPivot then
-		statusLabel.Text = "Safety Gate gagal: tim perlu memilih Deep Pivot."
+		statusLabel.Text = "Safety Gate gagal: pilih Deep Pivot untuk merancang ulang solusi."
 	elseif report.PivotBlockedByBudget then
 		statusLabel.Text = "Saldo menghalangi iterasi berikutnya. Laporan ini mengakhiri sesi."
 	elseif report.CanQuickPatch or report.CanDeepPivot then
-		statusLabel.Text = "Pilih langkah iterasi bersama tim."
+		statusLabel.Text = "Pilih langkah iterasi yang paling tepat."
 	else
-		statusLabel.Text = "Sesi selesai. Diskusikan apa yang dipelajari dari umpan balik Rani."
+		statusLabel.Text = "Sesi selesai. Pelajari umpan balik Rani dan hasil desainmu."
 	end
 end
 
-local function renderIteration(actions: { string }, budget: number, mustDeepPivot: boolean, voteToken: number?)
+local function renderIteration(actions: { string }, budget: number, mustDeepPivot: boolean)
 	gui.Enabled = true
 	promptFrame.CanvasPosition = Vector2.zero
-	activeNodeKey = nil
 	setBudget(budget)
-	stageLabel.Text = "Tahap Iterasi | Voting Tim"
+	stageLabel.Text = "Tahap Iterasi | Pilih langkah berikutnya"
 	promptLabel.Text = if mustDeepPivot
-		then "Desain belum lolos Safety Gate. Tim perlu memilih Deep Pivot untuk merancang ulang jalur solusi."
+		then "Desain belum lolos Safety Gate. Pilih Deep Pivot untuk merancang ulang jalur solusi."
 		else "Pilih cara menanggapi umpan balik Rani. Quick Patch memperbaiki prototipe; Deep Pivot menjual prototipe dengan salvage 50%."
 	local options: { ButtonOption } = {}
 	for _, action in ipairs(actions) do
@@ -622,8 +602,8 @@ local function renderIteration(actions: { string }, budget: number, mustDeepPivo
 			table.insert(options, { Id = action, Text = "DEEP PIVOT — salvage 50% dan kembali ke Tahap 2" })
 		end
 	end
-	renderOptions(options, voteToken, function(action: string, token: number)
-		iterationEvent:FireServer(token, action)
+	renderOptions(options, function(action: string)
+		chooseIterationEvent:FireServer(action)
 	end)
 end
 
@@ -636,20 +616,17 @@ local function renderSnapshot(snapshot: any)
 	end
 	if snapshot.Phase == "MISSION" or snapshot.Phase == "SIMULATION" then
 		gui.Enabled = false
-		activeNodeKey = nil
-		activeVoteToken = nil
 		clearChoices()
 		return
 	elseif snapshot.Phase == "DECISIONS" then
-		renderNode(snapshot.ActiveNodeKey, snapshot.AllowedChoiceKeys, snapshot.Budget, snapshot.CurrentStage, snapshot.VoteToken)
+		renderNode(snapshot.ActiveNodeKey, snapshot.AllowedChoiceKeys, snapshot.Budget, snapshot.CurrentStage)
 	elseif snapshot.LatestReport then
 		renderReport(snapshot.LatestReport, snapshot.Budget)
 		if snapshot.Phase == "ITERATION" then
 			renderIteration(
 				snapshot.AllowedIterationActions,
 				snapshot.Budget,
-				snapshot.LatestReport.MustDeepPivot,
-				snapshot.VoteToken
+				snapshot.LatestReport.MustDeepPivot
 			)
 		end
 	end
@@ -678,8 +655,6 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 	elseif action == "CLUE_FOUND" then
 		showClueNotification(args[2], args[3], args[4], args[5])
 	elseif action == "MISSION_UPDATE" then
-		activeNodeKey = nil
-		activeVoteToken = nil
 		clearChoices()
 		gui.Enabled = false
 		updateMissionState(args[1], args[2], args[3], args[4])
@@ -695,7 +670,7 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 			trackerDetail.Text = "Rani terdistraksi; kendaraan membunyikan klakson dan ia mundur."
 		end
 	elseif action == "ASSEMBLY_COMPLETE" then
-		showWorldNotice("Prototipe berhasil dirakit", args[1] or "Model tim siap diuji di zebra cross.")
+		showWorldNotice("Prototipe berhasil dirakit", args[1] or "Model prototipemu siap diuji di zebra cross.")
 	elseif action == "OPEN_GAME_UI" then
 		gui.Enabled = true
 		titleLabel.Text = "CrossSafe | Design Thinking"
@@ -704,7 +679,7 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 		gui.Enabled = true
 		titleLabel.Text = "CrossSafe | Design Thinking"
 		startSessionButton.Visible = false
-		statusLabel.Text = "Sesi dimulai. Dengarkan kebutuhan Rani dan diskusikan pilihan bersama tim."
+		statusLabel.Text = "Sesi dimulai. Dengarkan kebutuhan Rani dan pilih solusi berdasarkan bukti."
 	elseif action == "START_REJECTED" then
 		statusLabel.Text = "Untuk memulai, dekati Rani lalu pilih tombol mulai sekali lagi."
 		if questFound >= questRequired then
@@ -712,14 +687,16 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 			startSessionButton.Active = true
 		end
 	elseif action == "PROMPT_NODE" then
-		renderNode(args[1], args[2], args[3], args[4], args[5])
+		renderNode(args[1], args[2], args[3], args[4])
 	elseif action == "SHOW_EVALUATION_REPORT" then
 		renderReport(args[1], args[2])
 	elseif action == "PROMPT_ITERATION" then
-		renderIteration(args[1], args[2], args[3], args[4])
-	elseif action == "VOTE_REJECTED" then
-		statusLabel.Text = "Voting ditolak atau sudah kedaluwarsa. Memuat status terbaru..."
+		renderIteration(args[1], args[2], args[3])
+	elseif action == "CHOICE_REJECTED" then
+		statusLabel.Text = "Pilihan tidak tersedia atau sesi berubah. Memuat status terbaru..."
 		task.defer(refreshFromServer)
+	elseif action == "SOLO_SERVER_REQUIRED" then
+		statusLabel.Text = "CrossSafe dirancang untuk satu pemain per server."
 	elseif action == "BUDGET_REJECTED" then
 		statusLabel.Text = string.format("Saldo %s tidak cukup untuk pilihan %s.", formatRupiah(args[1]), formatRupiah(args[2]))
 		task.defer(refreshFromServer)
@@ -728,7 +705,7 @@ syncEvent.OnClientEvent:Connect(function(action: string, ...: any)
 		task.defer(refreshFromServer)
 	elseif action == "DEEP_PIVOT_STARTED" then
 		setBudget(args[1])
-		statusLabel.Text = string.format("Deep Pivot ke-%d dimulai. Tim kembali ke Define.", args[2])
+		statusLabel.Text = string.format("Deep Pivot ke-%d dimulai. Kamu kembali ke Define.", args[2])
 	elseif action == "NO_AFFORDABLE_PROTOTYPE" then
 		statusLabel.Text = "Saldo tidak cukup untuk prototipe yang tersedia. Periksa jalur iterasi."
 	end

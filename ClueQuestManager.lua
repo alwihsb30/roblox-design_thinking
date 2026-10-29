@@ -1,5 +1,5 @@
 --!strict
--- ModuleScript server untuk misi pencarian tiga bukti fisik. Progres dibagi oleh satu tim per server.
+-- ModuleScript server untuk misi pencarian tiga bukti fisik. Progres disimpan untuk sesi pemain tunggal di server.
 
 type ClueDefinition = {
 	Id: string,
@@ -13,6 +13,7 @@ local ClueQuestManager = {} :: {
 	GetProgress: () -> (number, number),
 	IsComplete: () -> boolean,
 	SendProgress: (Player) -> (),
+	Reset: () -> (),
 }
 
 local CLUES: { ClueDefinition } = {
@@ -63,6 +64,18 @@ end
 
 function ClueQuestManager.IsComplete(): boolean
 	return countFound() >= #CLUES
+end
+
+function ClueQuestManager.Reset()
+	table.clear(foundById)
+	for instance in pairs(boundParts) do
+		if instance.Parent then
+			local prompt = instance:FindFirstChild("InvestigatePrompt")
+			if prompt and prompt:IsA("ProximityPrompt") then
+				prompt.Enabled = true
+			end
+		end
+	end
 end
 
 function ClueQuestManager.SendProgress(player: Player)

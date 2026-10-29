@@ -31,6 +31,8 @@ local assemblyPrompt: ProximityPrompt? = nil
 local assemblySound: Sound? = nil
 local hornSound: Sound? = nil
 local vehicleHomePivots: { [Model]: CFrame } = {}
+local activeVehicleTweens: { [Model]: Tween } = {}
+local raniHomePivot: CFrame? = nil
 
 local function getFolderChildPart(folderName: string, childName: string): BasePart?
 	local folder = workspace:FindFirstChild(folderName)
@@ -132,7 +134,7 @@ local function completeMission(key: string, player: Player, detail: string?)
 	end
 	activeMissionKey = nil
 	missionProgress = missionRequired
-	missionDetail = "Berhasil. Tim dapat melanjutkan ke tahap berikutnya."
+	missionDetail = "Berhasil. Kamu dapat melanjutkan ke tahap berikutnya."
 	sendMissionState(nil)
 	local callback = onMissionCompleted
 	if callback then
@@ -282,6 +284,10 @@ local function tweenModelTo(model: Model, destination: CFrame, duration: number)
 	if not model.Parent then
 		return
 	end
+	local oldTween = activeVehicleTweens[model]
+	if oldTween then
+		oldTween:Cancel()
+	end
 	local value = Instance.new("CFrameValue")
 	value.Value = model:GetPivot()
 	local connection = value:GetPropertyChangedSignal("Value"):Connect(function()
@@ -290,8 +296,12 @@ local function tweenModelTo(model: Model, destination: CFrame, duration: number)
 		end
 	end)
 	local tween = TweenService:Create(value, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Value = destination })
+	activeVehicleTweens[model] = tween
 	tween:Play()
 	tween.Completed:Wait()
+	if activeVehicleTweens[model] == tween then
+		activeVehicleTweens[model] = nil
+	end
 	connection:Disconnect()
 	value:Destroy()
 end
@@ -379,8 +389,8 @@ local function configureScene()
 					blueprintVisited[stationId] = true
 					local blueprintName = if stationId == "A" then "Bengkel Konstruksi Jalan" else "Lab Komputer/Elektronik"
 					local description = if stationId == "A"
-						then "Blueprint marka jalan, pita kejut, dan speed table landai sudah dipelajari tim."
-						else "Blueprint Smart Traffic dan sensor penyeberangan sudah dipelajari tim."
+						then "Blueprint marka jalan, pita kejut, dan speed table landai sudah kamu pelajari."
+						else "Blueprint Smart Traffic dan sensor penyeberangan sudah kamu pelajari."
 					notifyAll("WORLD_DISCOVERY", "Blueprint dibaca: " .. blueprintName, description)
 					completeMission("BLUEPRINT", player, stationId)
 				end)
@@ -454,6 +464,10 @@ local function configureScene()
 		end)
 	end
 
+	local npc = workspace:FindFirstChild("Rani_NPC")
+	if npc and npc:IsA("Model") then
+		raniHomePivot = npc:GetPivot()
+	end
 	local simulationFolder = getSimulationFolder()
 	if simulationFolder then
 		local horn = simulationFolder:FindFirstChild("HornSound")
@@ -507,7 +521,7 @@ function SpatialMissionManager.StartBlueprintMission(): boolean
 	for _, prompt in pairs(blueprintPrompts) do
 		setPromptEnabled(prompt, true)
 	end
-	setMission("BLUEPRINT", "Misi: Jelajahi Blueprint Kota", "Tim perlu membaca minimal satu blueprint di Bengkel Konstruksi Jalan atau Lab Komputer/Elektronik.", 0, 1)
+	setMission("BLUEPRINT", "Misi: Jelajahi Blueprint Kota", "Baca minimal satu blueprint di Bengkel Konstruksi Jalan atau Lab Komputer/Elektronik.", 0, 1)
 	return true
 end
 
@@ -572,6 +586,44 @@ function SpatialMissionManager.StartMaterialMission(): boolean
 	setPromptEnabled(assemblyPrompt, true)
 	setMission("MATERIALS", "Misi: Ambil material lalu rakit di zebra cross", "Ambil komponen dari kotak logistik, lalu bawa Tool ke PrototypeSlot.", 0, 1)
 	return true
+end
+
+function SpatialMissionManager.ResetSession()
+	simulationRunId += 1
+	activeMissionKey = nil
+	lastMissionKey = ""
+	missionTitle = "Misi: Selidiki Titik Bahaya Jalan Raya"
+	missionDetail = "Periksa tiga bukti fisik sebelum berbicara dengan Rani."
+	missionProgress = 0
+	missionRequired = 3
+	table.clear(blueprintVisited)
+	removeMaterialTools()
+
+	for _, prompt in ipairs({ whiteboardPrompt, cratePrompt, assemblyPrompt }) do
+		setPromptEnabled(prompt, false)
+	end
+	for _, prompt in pairs(blueprintPrompts) do
+		setPromptEnabled(prompt, false)
+	end
+
+	for model, tween in pairs(activeVehicleTweens) do
+		tween:Cancel()
+		activeVehicleTweens[model] = nil
+	end
+	for model, homePivot in pairs(vehicleHomePivots) do
+		if model.Parent then
+			model:PivotTo(homePivot)
+		end
+	end
+	setSignalLamp(false)
+
+	local npc, humanoid, root = getRaniHumanoid()
+	if humanoid and root then
+		humanoid:MoveTo(root.Position)
+	end
+	if npc and raniHomePivot then
+		npc:PivotTo(raniHomePivot)
+	end
 end
 
 function SpatialMissionManager.GetSnapshot(): { [string]: any }
@@ -666,7 +718,7 @@ function SpatialMissionManager.RunTestingSimulation(safetyStatus: string, onComp
 			return
 		end
 		missionProgress = 1
-		missionDetail = "Simulasi selesai. Rani memberi umpan balik; rapor evaluasi tim siap dibuka."
+		missionDetail = "Simulasi selesai. Rani memberi umpan balik; rapor evaluasimu siap dibuka."
 		sendMissionState(nil)
 		local callback = onComplete
 		callback()

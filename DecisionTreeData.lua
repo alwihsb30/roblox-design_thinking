@@ -42,7 +42,7 @@ export type Prototype = {
 local Nodes: { [string]: DecisionNode } = {
 	["Stage1_Root"] = {
 		Stage = 1,
-		Prompt = "Rani terlihat cemas di pinggir jalan raya depan sekolah. Bagaimana tim memulai penyelidikan?",
+		Prompt = "Rani terlihat cemas di pinggir jalan raya depan sekolah. Bagaimana kamu memulai penyelidikan?",
 		Choices = {
 			["1.A"] = {
 				Text = "Bertanya kepada pengendara: 'Kenapa kalian selalu melaju kencang di depan sekolah?'",
@@ -60,7 +60,7 @@ local Nodes: { [string]: DecisionNode } = {
 	},
 	["Stage2_From1A"] = {
 		Stage = 2,
-		Prompt = "Berdasarkan pengamatan awal, bagaimana tim merumuskan masalah?",
+		Prompt = "Berdasarkan pengamatan awal, bagaimana kamu merumuskan masalah?",
 		Choices = {
 			["2.A1"] = {
 				Text = "Pengendara motor tidak memiliki etika dan sengaja mengabaikan keselamatan siswa.",
@@ -319,7 +319,7 @@ local Prototypes: { [string]: Prototype } = {
 		ParentChoiceId = "3.B1b", Name = "JPO ramp spiral dengan kanopi dan lampu surya", Cost = 9500000, Points = 25,
 		SafetyRating = "PASS", ModelName = "Proto_P12_MasterBridge",
 		UserNeedAddressed = "Lintasan inklusif yang terlindung cuaca dan terlihat pada malam hari.",
-		SafetyRiskDescription = "Solusi aman tetapi memakai sebagian besar modal tim.",
+		SafetyRiskDescription = "Solusi aman tetapi memakai sebagian besar modal awal.",
 		RaniFeedback = "Jembatannya teduh dan terasa aman. Aku bisa menyeberang tanpa khawatir kendaraan di bawah.",
 	},
 	["P.13"] = {
@@ -357,7 +357,6 @@ local Constants = {
 	RootNode = "Stage1_Root",
 	TerminalNode = "TERMINAL",
 	InitialBudget = 10000000,
-	VoteDurationSeconds = 60,
 	ExpectedQuestionNodes = 15,
 	ExpectedChoiceEdges = 30,
 	ExpectedPrototypeLeaves = 16,
