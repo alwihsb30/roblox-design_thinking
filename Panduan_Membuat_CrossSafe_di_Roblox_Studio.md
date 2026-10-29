@@ -1,13 +1,14 @@
 # Panduan Membuat CrossSafe di Roblox Studio
 
-Panduan ini memakai enam ModuleScript/Script server dan satu `LocalScript` UI. Permainan memakai satu tim bersama per server, modal awal Rp10.000.000, Misi 1 pencarian bukti, misi fisik Pos Satpam dan Blueprint, pengangkutan material, perakitan prototipe, simulasi penyeberangan, Safety Gate, Quick Patch, dan Deep Pivot.
+Panduan ini memakai empat Script/ModuleScript di `ServerScriptService`, satu ModuleScript data di `ReplicatedStorage`, dan satu `LocalScript` UI di `StarterGui`. Permainan memakai satu pemain per server, modal awal Rp10.000.000, Misi 1 pencarian bukti, misi fisik Pos Satpam dan Blueprint, pengangkutan material, perakitan prototipe, simulasi penyeberangan, Safety Gate, Quick Patch, dan Deep Pivot.
 
 ## 1. Siapkan project Roblox
 
 1. Buka Roblox Studio dan buat project **Baseplate**.
 2. Simpan project melalui **File → Save to Roblox** atau **Publish to Roblox**.
-3. Tampilkan panel **Explorer**, **Properties**, dan **Output** melalui tab **View**. Explorer dipakai untuk membuat struktur objek; Properties untuk mengubah nama dan pengaturan objek; Output untuk melihat error dan peringatan.
-4. Buat objek sesuai susunan berikut. Nama harus sama persis.
+3. Atur Maximum Players menjadi **1** pada pengaturan place di Creator Dashboard; `Players.MaxPlayers` diubah dari pengaturan place, bukan dari script. Lihat [dokumentasi MaxPlayers](https://create.roblox.com/docs/reference/engine/classes/Players#MaxPlayers).
+4. Tampilkan panel **Explorer**, **Properties**, dan **Output** melalui tab **View**. Explorer dipakai untuk membuat struktur objek; Properties untuk mengubah nama dan pengaturan objek; Output untuk melihat error dan peringatan.
+5. Buat objek sesuai susunan berikut. Nama harus sama persis.
 
 ```text
 ReplicatedStorage
@@ -17,7 +18,6 @@ ServerScriptService
 ├── GameManager (Script)
 ├── ClueQuestManager (ModuleScript)
 ├── SpatialMissionManager (ModuleScript)
-├── VotingHandler (ModuleScript)
 └── EvaluationService (ModuleScript)
 
 StarterGui
@@ -52,7 +52,7 @@ Workspace
     └── HornSound (Sound)
 ```
 
-Cara termudah membuat graybox adalah menjalankan `CreateInvestigationClues_CommandBar.lua` dan `CreateSpatialMissions_CommandBar.lua` di Command Bar saat mode Edit. Helper kedua menerima `InteractionStation` yang berupa Folder maupun Model. Roblox menjalankan `LocalScript` di `StarterGui` untuk tiap pemain. `GameManager` membuat `GameNetwork`, empat `RemoteEvent`, dan satu `RemoteFunction` otomatis ketika server dimulai; jangan buat salinan remotes secara manual. `GameManager`, `ClueQuestManager`, dan `SpatialMissionManager` membuat prompt pada objek yang sesuai. [Panduan lokasi script](https://create.roblox.com/docs/scripting/locations)
+Cara termudah membuat graybox adalah menjalankan `CreateInvestigationClues_CommandBar.lua` dan `CreateSpatialMissions_CommandBar.lua` di Command Bar saat mode Edit. Helper kedua menerima `InteractionStation` yang berupa Folder maupun Model. Roblox menjalankan `LocalScript` di `StarterGui` untuk tiap pemain. `GameManager` membuat `GameNetwork`, empat `RemoteEvent` (`SubmitChoice`, `SyncGameState`, `ChooseIteration`, `StartSession`), dan satu `RemoteFunction` otomatis ketika server dimulai; jangan buat salinan remotes secara manual. `GameManager`, `ClueQuestManager`, dan `SpatialMissionManager` membuat prompt pada objek yang sesuai. [Panduan lokasi script](https://create.roblox.com/docs/scripting/locations)
 
 Jika project sudah memiliki `ScreenGui` CrossSafe lama atau salinan `CrossSafeClient` di `StarterPlayerScripts`, hapus/nonaktifkan duplikat itu. UI baru dibuat oleh LocalScript ini dan memulai dalam keadaan tersembunyi; GUI lama yang masih ada bisa tetap tampil terpisah.
 
@@ -61,20 +61,19 @@ Jika project sudah memiliki `ScreenGui` CrossSafe lama atau salinan `CrossSafeCl
 Buka masing-masing file hasil dan salin seluruh isinya ke objek Studio yang namanya cocok:
 
 - `DecisionTreeData.lua` → `ReplicatedStorage/DecisionTreeData`.
-- `VotingHandler.lua` → `ServerScriptService/VotingHandler`.
 - `EvaluationService.lua` → `ServerScriptService/EvaluationService`.
 - `ClueQuestManager.lua` → `ServerScriptService/ClueQuestManager` (**ModuleScript**).
 - `SpatialMissionManager.lua` → `ServerScriptService/SpatialMissionManager` (**ModuleScript**).
 - `GameManager.lua` → `ServerScriptService/GameManager`.
 - `CrossSafeClient.client.lua` → `StarterGui/CrossSafeClient`.
 
-Hapus kode bawaan seperti `print("Hello world!")` sebelum menempel kode. Pastikan `DecisionTreeData` adalah **ModuleScript**, `GameManager` adalah **Script**, empat pengelola server lainnya adalah **ModuleScript**, dan file UI adalah **LocalScript**. Nama file di komputer boleh memiliki ekstensi `.lua` atau `.client.lua`; nama objek di Explorer mengikuti susunan di atas.
+Hapus kode bawaan seperti `print("Hello world!")` sebelum menempel kode. Pastikan `DecisionTreeData` adalah **ModuleScript**, `GameManager` adalah **Script**, tiga pengelola server lainnya adalah **ModuleScript**, dan file UI adalah **LocalScript**. Nama file di komputer boleh memiliki ekstensi `.lua` atau `.client.lua`; nama objek di Explorer mengikuti susunan di atas. Jika memperbarui place lama, hapus `ServerScriptService/VotingHandler`; alur baru tidak memerlukan modul tersebut.
 
-`CrossSafeClient` membuat Quest Tracker terus tampil; panel musyawarah dimulai tersembunyi. Setelah Misi 1 selesai, interaksi Rani memulai Tahap 1 Empathize. Sesudah itu pemain harus menuju papan satpam untuk membuka Define, membaca minimal satu blueprint untuk membuka Ideate, lalu memilih prototipe lewat voting. Prototipe baru dipasang setelah pemain mengambil Tool material dan merakitnya di `PrototypeSlot`. Rapor hanya dibuka sesudah simulasi Rani menyeberang. Untuk membuka voting yang sudah diizinkan lagi, dekati Rani; saat gerbang misi masih aktif prompt Rani hanya mengirim status tracker. Server menentukan pilihan tim, skor, biaya, status keselamatan, dan hasil iterasi. Remote Roblox memang dirancang untuk komunikasi klien-server; validasi penting tetap dilakukan di sisi server. [Dokumentasi RemoteEvent](https://create.roblox.com/docs/scripting/events/remote)
+`CrossSafeClient` membuat Quest Tracker terus tampil; panel pilihan dimulai tersembunyi. Setelah Misi 1 selesai, interaksi Rani memulai Tahap 1 Empathize. Sesudah itu pemain harus menuju papan satpam untuk membuka Define, membaca minimal satu blueprint untuk membuka Ideate, lalu memilih prototipe secara langsung. Prototipe baru dipasang setelah pemain mengambil Tool material dan merakitnya di `PrototypeSlot`. Rapor hanya dibuka sesudah simulasi Rani menyeberang. Untuk membuka pilihan yang sudah diizinkan lagi, dekati Rani; saat gerbang misi masih aktif prompt Rani hanya mengirim status tracker. Server memeriksa pilihanmu, skor, biaya, status keselamatan, dan hasil iterasi. Remote Roblox memang dirancang untuk komunikasi klien-server; validasi penting tetap dilakukan di sisi server. [Dokumentasi RemoteEvent](https://create.roblox.com/docs/scripting/events/remote)
 
 ## 3. Siapkan Misi 1: Olah TKP
 
-Misi bukti harus selesai sebelum voting Tahap 1 terbuka. Progres adalah progres satu tim per server: bila satu pemain menemukan bukti, semua pemain melihat jumlah yang sama.
+Misi bukti harus selesai sebelum pilihan Tahap 1 terbuka. Progres berlaku untuk satu pemain pada server tersebut.
 
 Cara tercepat membuat folder dan tiga Part placeholder:
 
@@ -95,7 +94,7 @@ Saat server berjalan, `ClueQuestManager` membuat prompt pada tiap Part dengan `A
 
 Jalankan `CreateSpatialMissions_CommandBar.lua` dari **View → Command Bar** dalam mode Edit. Skrip menambahkan objek graybox di sekitar `Z = 100` agar terpisah dari marker Misi 1 yang biasanya dibuat di origin. Helper juga membuat tulisan papan analisis dan kartu blueprint yang terlihat di dunia; part yang sudah ada tidak dipindah atau diubah:
 
-- `WarRoom.Whiteboard` — papan analisis Pos Satpam. Rani meminta tim membawa temuan ke sini setelah Tahap 1; hanya prompt fisik **Buka Papan Analisis** yang membuka voting Define.
+- `WarRoom.Whiteboard` — papan analisis Pos Satpam. Rani memintamu membawa temuan ke sini setelah Tahap 1; hanya prompt fisik **Buka Papan Analisis** yang membuka pilihan Define.
 - `BlueprintStations.Station_A` — meja Bengkel Konstruksi Jalan, berisi inspirasi marka jalan dan speed table.
 - `BlueprintStations.Station_B` — meja Lab Komputer/Elektronik, berisi inspirasi Smart Traffic dan sensor penyeberangan.
 - `MaterialSupply.Crate` dan `InteractionStation.PrototypeSlot` — pemain mengambil Tool `Material_Komponen_Prototipe`, membawanya dalam keadaan terpasang, lalu menahan prompt rakit selama 1,5 detik.
@@ -108,7 +107,7 @@ Pindahkan objek ke map sebenarnya. Letakkan `Whiteboard` di dalam Pos Satpam. At
 
 Helper membuat `AssemblySound` di `PrototypeSlot` dan `HornSound` di `CrossSafeSimulation` tanpa audio ID. Isi `SoundId` dengan audio milik Anda atau audio bebas pakai dari Creator Store agar suara perakitan dan klakson terdengar; Roblox meminta `SoundId` menunjuk ke asset audio yang dapat diakses oleh experience. [Dokumentasi Sound Roblox](https://create.roblox.com/docs/sound)
 
-Di Tahap 3, membaca salah satu stasiun A/B sudah cukup untuk membuka voting Ideate tim. Pilihan Ideate tetap mengikuti cabang Define di pohon keputusan. Setelah voting Prototype, biaya tetap dicatat ke ledger Rp10 juta saat pilihan diterima; jika model katalog belum disiapkan, server menampilkan graybox berlabel di PrototypeSlot. Model asli tetap dapat dibuat di `ServerStorage/PrototypeModels`.
+Di Tahap 3, membaca salah satu stasiun A/B sudah cukup untuk membuka pilihan Ideate. Pilihan Ideate tetap mengikuti cabang Define di pohon keputusan. Setelah memilih prototipe, biaya tetap dicatat ke ledger Rp10 juta saat pilihan diterima; jika model katalog belum disiapkan, server menampilkan graybox berlabel di PrototypeSlot. Model asli tetap dapat dibuat di `ServerStorage/PrototypeModels`.
 
 Pada Testing, `SafetyStatus == PASS` menyalakan lampu, menghentikan mobil di marker sebelum garis, dan mengarahkan Rani ke tujuan. Status `FAIL` maupun `CONDITIONAL` memakai simulasi berisiko: mobil melintasi marker, klakson berbunyi, Rani berjalan menunduk lalu kaget dan mundur. Rapor baru dibuka setelah urutan simulasi selesai. `Humanoid:MoveTo()` dapat berhenti bila rig terhalang atau tidak mencapai target; jalur NPC perlu bebas penghalang. [Dokumentasi Humanoid.MoveTo](https://create.roblox.com/docs/reference/engine/classes/Humanoid)
 
@@ -154,29 +153,29 @@ Atur pivot tiap Model agar berada di titik yang sesuai pada `PrototypeSlot`. Unt
 ## 7. Jalankan dan uji alur
 
 1. Buka **View → Output**, lalu tekan **Play**. Saat server dimulai, `DecisionTreeData.Validate()` memeriksa hubungan node, pilihan, prototipe, skor, dan harga. Perbaiki error yang muncul di Output sebelum melanjutkan.
-2. Pastikan panel voting belum tampil, tetapi Quest Tracker menunjukkan `[0/3]`. Dekati satu bukti dan tekan **Periksa** selama satu detik. Tracker harus berubah menjadi `[1/3]`, pop-up harus tampil empat detik, dan prompt bukti itu harus hilang.
+2. Pastikan panel pilihan belum tampil, tetapi Quest Tracker menunjukkan `[0/3]`. Dekati satu bukti dan tekan **Periksa** selama satu detik. Tracker harus berubah menjadi `[1/3]`, pop-up harus tampil empat detik, dan prompt bukti itu harus hilang.
 3. Berinteraksi dengan Rani sebelum semua bukti terkumpul. Rani harus menolak membuka Tahap 1, menunjukkan progres saat ini, dan tidak menampilkan tombol mulai.
-4. Periksa dua bukti lainnya. Setelah `[3/3]`, kembali ke Rani dan tekan **Ajak bicara**; dialog Rani sekarang menampilkan tombol **Mulai diskusi bersama Rani**.
-5. Tekan tombol mulai. Panel voting Tahap 1 harus terbuka. Tombol **×** menyembunyikan panel; prompt Rani dapat membuka kembali UI selama sesi berjalan.
-6. Untuk memeriksa progres bersama, buka tab **Test**, pilih **Server & Clients**, atur jumlah klien menjadi 3, lalu mulai simulasi. Minta klien berbeda menemukan bukti; semua tracker harus menunjukkan jumlah yang sama. [Mode pengujian Studio](https://create.roblox.com/docs/studio/testing-modes)
-7. Selesaikan voting Empathize. Sesudah suara tim ditutup, panel harus menghilang dan tracker mengarahkan pemain ke `WarRoom.Whiteboard`. Dekati papan dan tahan prompt **Buka Papan Analisis**; hanya sesudah aksi ini voting Define boleh terbuka.
-8. Selesaikan voting Define. Tracker berpindah ke misi Blueprint. Baca `Station_A` atau `Station_B`; interaksi di salah satu meja sudah cukup untuk membuka voting Ideate. Sebelum scan, panel Ideate harus tetap tertutup.
-9. Selesaikan voting Ideate, lalu pilih prototipe di Tahap 4. Saldo harus berkurang sesuai biaya prototipe di ledger server; model belum muncul sebelum material dirakit.
+4. Periksa dua bukti lainnya. Setelah `[3/3]`, kembali ke Rani dan tekan **Ajak bicara**; dialog Rani sekarang menampilkan tombol **Mulai sesi bersama Rani**.
+5. Tekan tombol mulai. Panel pilihan Empathize harus terbuka. Tombol **×** menyembunyikan panel; prompt Rani dapat membuka kembali UI selama sesi berjalan.
+6. Jalankan **Test → Start** dengan satu pemain. Experience ini dibatasi satu pemain per server; jangan gunakan beberapa klien untuk satu sesi.
+7. Pilih jawaban Empathize. Setelah pilihan diterima, panel harus menghilang dan tracker mengarahkan pemain ke `WarRoom.Whiteboard`. Dekati papan dan tahan prompt **Buka Papan Analisis**; hanya sesudah aksi ini pilihan Define boleh terbuka.
+8. Pilih jawaban Define. Tracker berpindah ke misi Blueprint. Baca `Station_A` atau `Station_B`; interaksi di salah satu meja sudah cukup untuk membuka pilihan Ideate. Sebelum scan, panel Ideate harus tetap tertutup.
+9. Pilih jawaban Ideate, lalu pilih prototipe di Tahap 4. Saldo harus berkurang sesuai biaya prototipe di ledger server; model belum muncul sebelum material dirakit.
 10. Datangi `MaterialSupply.Crate`, ambil Tool, bawa sambil terpasang ke `PrototypeSlot`, lalu tahan prompt rakit 1,5 detik. Tool harus hilang dan model terpilih/graybox berlabel muncul.
 11. Untuk jalur aman, pilih `1.B` → `2.B2` → baca blueprint Station B → `3.B2b` → `P.16`. Lampu menyala, kedua mobil bergerak ke marker di belakang garis stop, Rani berjalan ke `Crosswalk_Destination`, lalu rapor muncul.
 12. Untuk jalur gagal, pilih `1.B` → `2.B2` → Station B → `3.B2a` → `P.14`. Mobil bergerak melewati zebra cross, klakson (jika SoundId diset) berbunyi, Rani menunduk/kaget/mundur, dan rapor baru muncul setelah gerakan selesai. Status harus `FAIL` serta mengikuti aturan Safety Gate.
-13. Buka tab **Test → Server & Clients** dengan tiga klien. Biarkan satu pemain membuka papan atau membaca blueprint; semua klien harus melihat tracker progres yang sama. Pastikan tahap lanjutan hanya terbuka setelah prompt fisik server aktif.
-14. Uji Quick Patch: setelah laporan bersyarat, lakukan voting Quick Patch; model patch dipasang dan simulasi menyeberang diputar lagi sebelum laporan diperbarui. Uji Deep Pivot: ledger mengembalikan salvage 50%, tracker kembali mengarahkan tim ke Pos Satpam, dan Define harus dibuka lagi secara fisik.
+13. Keluar dari Play lalu mulai lagi. Quest harus kembali ke `[0/3]` dan saldo ke Rp10.000.000, menandakan sesi pemain sebelumnya sudah direset.
+14. Uji Quick Patch: setelah laporan bersyarat, pilih Quick Patch; model patch dipasang dan simulasi menyeberang diputar lagi sebelum laporan diperbarui. Uji Deep Pivot: ledger mengembalikan salvage 50%, tracker kembali mengarahkanmu ke Pos Satpam, dan Define harus dibuka lagi secara fisik.
 
-Untuk mempercepat uji timer di Studio, ubah `VoteDurationSeconds` pada `DecisionTreeData.Constants` sementara, lalu pulihkan durasi 60 detik sebelum menerbitkan game. Voting harus diuji dengan server dan beberapa klien karena tes satu pemain tidak menguji pengumpulan suara tim.
+Tidak ada voting atau timer. Uji alur memakai **Test → Start** dengan satu pemain.
 
 ## 8. Cara membaca sistem poin dan keselamatan
 
 - Setiap tahap menyumbang 10 atau 25 poin; skor Design Thinking berkisar 40–100.
-- Pembelian prototipe dan Quick Patch mengurangi saldo server. Quick Patch berbiaya Rp2.000.000 dan memperbaiki risiko tertentu; patch tidak menambah skor metodologi.
-- Deep Pivot menjual prototipe lama dengan pengembalian 50% biaya dan membawa tim kembali ke Define, dengan jawaban `1.B` dipertahankan.
+- Pembelian prototipe dan Quick Patch mengurangi saldo pemain. Quick Patch berbiaya Rp2.000.000 dan memperbaiki risiko tertentu; patch tidak menambah skor metodologi.
+- Deep Pivot menjual prototipe lama dengan pengembalian 50% biaya dan membawamu kembali ke Define, dengan jawaban `1.B` dipertahankan.
 - Safety Gate dapat membatasi bintang: `FAIL` maksimal dua bintang; `CONDITIONAL` maksimal tiga bintang.
-- Sesi satu server adalah satu tim. Implementasi ini belum membuat sesi terpisah untuk beberapa tim dalam satu server atau penyimpanan kemajuan setelah server tutup.
+- Satu server hanya mendukung satu pemain. GameManager menolak pemain tambahan; atur batas pemain place menjadi satu. Penyimpanan sesi lintas-server belum tersedia.
 
 Lihat `CrossSafe_Setup_Audit.md` untuk asumsi audit dan rincian batas implementasi. Sebelum menerbitkan, pastikan tidak ada error pada Output, semua pilihan UI terbaca pada ukuran layar target, jalur Rani bebas penghalang, marker mobil akurat, serta audio memiliki izin dan dapat diputar. Eksekusi runtime perlu dilakukan di Roblox Studio.
 
