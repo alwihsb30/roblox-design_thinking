@@ -14,14 +14,13 @@ CrossSafe adalah game pembelajaran Design Thinking untuk merancang penyeberangan
 
 ## Setup Roblox Studio
 
-- Masukkan `DecisionTreeData.lua` ke `ReplicatedStorage` sebagai ModuleScript.
-- Masukkan `GameManager.lua` sebagai Script serta `ClueQuestManager.lua`, `SpatialMissionManager.lua`, `VotingHandler.lua`, dan `EvaluationService.lua` sebagai ModuleScript di `ServerScriptService`.
-- Masukkan `CrossSafeClient.client.lua` sebagai LocalScript di `StarterGui`.
-- Jalankan `CreateInvestigationClues_CommandBar.lua` dan `CreateSpatialMissions_CommandBar.lua` melalui **View → Command Bar** saat mode Edit.
-- Pindahkan graybox dan marker ke lokasi map sebenarnya. Pastikan Rani punya Humanoid dan HumanoidRootPart, serta jalur ke Crosswalk_Destination bebas penghalang.
-- Isi SoundId pada `AssemblySound` dan `HornSound` dengan audio yang dapat dipakai experience.
+- Untuk mulai dari nol, buat **place Baseplate baru** dan ikuti [Panduan Setup Map Baru](Panduan_Setup_MapBaru_CrossSafe.md).
+- Jalankan hanya `CreateCrossSafeFreshMap_CommandBar.lua` di **View → Command Bar** saat mode Edit. Generator ini membuat satu layout graybox lengkap; jangan jalankan generator lama Misi 1/spatial pada map yang sama.
+- Tambahkan tujuh script pada layanan yang ditunjukkan di panduan. Nama object harus sama persis dengan nama modul.
+- Tambahkan rig `Rani_NPC` dari **Avatar → Rig Builder**. Prompt interaksi dibuat otomatis saat Play.
+- Jangan buat `GameNetwork`, RemoteEvent, atau ProximityPrompt manual; server menyiapkannya saat Play. Isi SoundId pada `AssemblySound` dan `HornSound` bila ingin efek audio.
 
-Prompt dibuat oleh script server saat Play. Jangan buat salinan `GameNetwork`/RemoteEvent secara manual. Panduan lengkap ada di [Panduan Roblox Studio](Panduan_Membuat_CrossSafe_di_Roblox_Studio.md); audit alur dan asumsi ada di [Audit setup](CrossSafe_Setup_Audit.md).
+Panduan teknis lengkap ada di [Panduan Roblox Studio](Panduan_Membuat_CrossSafe_di_Roblox_Studio.md); audit alur dan asumsi ada di [Audit setup](CrossSafe_Setup_Audit.md).
 
 Uji gerbang dan progres bersama melalui **Test → Server & Clients**. Sesi, progres, dan ledger bersifat per server dan tidak tersimpan setelah server ditutup.
 
