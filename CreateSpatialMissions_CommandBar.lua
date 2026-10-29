@@ -229,10 +229,11 @@ local vehicle1Start = origin + Vector3.new(-28, 1, -7)
 local vehicle2Start = origin + Vector3.new(28, 1, 7)
 ensureVehicle(simulation, "Vehicle_1", CFrame.lookAt(vehicle1Start, vehicle1Start + forward), Color3.fromRGB(193, 77, 59))
 ensureVehicle(simulation, "Vehicle_2", CFrame.lookAt(vehicle2Start, vehicle2Start + reverse), Color3.fromRGB(58, 107, 170))
-ensureMarker(simulation, "VehicleStop_1", origin + Vector3.new(-3, 0.15, -7), forward)
-ensureMarker(simulation, "VehiclePass_1", origin + Vector3.new(24, 0.15, -7), forward)
-ensureMarker(simulation, "VehicleStop_2", origin + Vector3.new(3, 0.15, 7), reverse)
-ensureMarker(simulation, "VehiclePass_2", origin + Vector3.new(-24, 0.15, 7), reverse)
+-- Pivot model mobil berada setinggi Y=1; samakan tinggi marker agar mobil tidak terbenam.
+ensureMarker(simulation, "VehicleStop_1", origin + Vector3.new(-3, 1, -7), forward)
+ensureMarker(simulation, "VehiclePass_1", origin + Vector3.new(24, 1, -7), forward)
+ensureMarker(simulation, "VehicleStop_2", origin + Vector3.new(3, 1, 7), reverse)
+ensureMarker(simulation, "VehiclePass_2", origin + Vector3.new(-24, 1, 7), reverse)
 
 if not simulation:FindFirstChild("HornSound") then
 	local sound = Instance.new("Sound")
