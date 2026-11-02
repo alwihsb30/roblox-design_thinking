@@ -7,6 +7,22 @@ local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeDat
 
 export type SafetyStatus = "PASS" | "CONDITIONAL" | "FAIL"
 
+-- [UPGRADE] Tipe data metrik evaluasi multidimensi
+export type MultidimensionalScores = {
+	SafetyIndex: number,      -- 0-100%
+	TrafficCongestion: number, -- 0-100%
+	InclusivityScore: number,  -- 0-100%
+	BudgetEfficiency: number,  -- 0-100%
+}
+
+-- [UPGRADE] Catatan kualitatif per dimensi evaluasi
+export type DimensionNotes = {
+	SafetyNote: string,
+	TrafficNote: string,
+	InclusivityNote: string,
+	BudgetNote: string,
+}
+
 export type FullReport = {
 	ScoreDT: number,
 	SafetyStatus: SafetyStatus,
@@ -22,7 +38,22 @@ export type FullReport = {
 	CanDeepPivot: boolean,
 	MustDeepPivot: boolean,
 	PivotBlockedByBudget: boolean,
+	-- [UPGRADE] Field metrik dan narasi multidimensi
+	MultidimensionalScores: MultidimensionalScores,
+	DimensionNotes: DimensionNotes,
+	ReportSummary: string,
 }
+
+local function formatRupiah(amount: number): string
+	local remaining = tostring(math.floor(amount))
+	local groups: { string } = {}
+	while #remaining > 3 do
+		table.insert(groups, 1, string.sub(remaining, -3))
+		remaining = string.sub(remaining, 1, -4)
+	end
+	table.insert(groups, 1, remaining)
+	return "Rp " .. table.concat(groups, ".")
+end
 
 local function getBaseStarRating(score: number): number
 	if score >= 95 then
@@ -79,6 +110,121 @@ local function buildRiskNote(pathRiskTags: { [string]: boolean }, prototype: any
 		table.insert(notes, "Saldo setelah salvage tidak cukup untuk membeli prototipe yang terjangkau pada putaran baru; iterasi tidak dapat dilanjutkan.")
 	end
 	return table.concat(notes, " ")
+end
+
+-- [UPGRADE] Fungsi kalkulasi multidimensi sesuai metodologi Design Thinking
+function EvaluationService.CalculateMultidimensionalScores(
+	prototype: any,
+	pathRiskTags: { [string]: boolean },
+	remainingBudget: number,
+	isPatched: boolean?,
+	safetyStatus: SafetyStatus
+): (MultidimensionalScores, DimensionNotes, string)
+	local baseSafety = prototype.BaseSafetyScore or 50
+	local baseTraffic = prototype.TrafficImpact or 30
+	local baseInclusivity = prototype.InclusivityScore or 50
+
+	-- 1. Perhitungan SafetyIndex (0 - 100)
+	local safetyIndex = baseSafety
+	if pathRiskTags.PROCESS_BIAS then
+		safetyIndex -= 5
+	end
+	if pathRiskTags.DISTRACTION or safetyStatus == "FAIL" then
+		safetyIndex = math.min(safetyIndex, 40)
+	end
+	if isPatched then
+		safetyIndex = math.min(100, safetyIndex + 20)
+	end
+	safetyIndex = math.clamp(math.round(safetyIndex), 0, 100)
+
+	-- 2. Perhitungan TrafficCongestion (0 - 100)
+	local trafficCongestion = baseTraffic
+	if isPatched and prototype.QuickPatch and prototype.QuickPatch.ModelName == "Patch_P02_RumbleStrip" then
+		trafficCongestion += 5
+	end
+	trafficCongestion = math.clamp(math.round(trafficCongestion), 0, 100)
+
+	-- 3. Perhitungan InclusivityScore (0 - 100)
+	local inclusivityScore = baseInclusivity
+	if pathRiskTags.ACCESSIBILITY then
+		if isPatched and prototype.QuickPatch and prototype.QuickPatch.ResolvesRiskTags and prototype.QuickPatch.ResolvesRiskTags.ACCESSIBILITY == true then
+			inclusivityScore = math.max(inclusivityScore, 85)
+		else
+			inclusivityScore = math.min(inclusivityScore, 30)
+		end
+	elseif isPatched and prototype.QuickPatch and prototype.QuickPatch.ModelName == "Patch_P11_Canopy" then
+		inclusivityScore = math.min(100, inclusivityScore + 15)
+	end
+	inclusivityScore = math.clamp(math.round(inclusivityScore), 0, 100)
+
+	-- 4. Perhitungan BudgetEfficiency (0 - 100)
+	local initialBudget = DecisionTreeData.Constants.InitialBudget
+	local budgetEfficiency = math.clamp(math.round((remainingBudget / initialBudget) * 100), 0, 100)
+
+	-- Teks narasi evaluasi per dimensi
+	local safetyNote: string
+	if safetyIndex >= 80 then
+		safetyNote = "Proteksi pejalan kaki sangat tinggi; meminimalisir risiko benturan dengan kendaraan."
+	elseif safetyIndex >= 50 then
+		safetyNote = "Proteksi pejalan kaki memadai, namun pengendara masih membutuhkan kewaspadaan situasional."
+	else
+		safetyNote = "Tingkat keselamatan kritis; desain memicu distraksi atau bahaya silau bagi penyeberang."
+	end
+
+	local trafficNote: string
+	if trafficCongestion <= 20 then
+		trafficNote = "Lalu lintas mengalir sangat lancar tanpa hambatan berarti bagi kendaraan umum/darurat."
+	elseif trafficCongestion <= 50 then
+		trafficNote = "Lalu lintas melambat secara teratur dan terkendali di sekitar zona sekolah."
+	else
+		trafficNote = "Hambatan lalu lintas tinggi; berpotensi menimbulkan kemacetan atau mengganggu ambulans."
+	end
+
+	local inclusivityNote: string
+	if inclusivityScore >= 80 then
+		inclusivityNote = "Sangat ramah difabel, lansia, dan anak; akses bebas hambatan tangga curam."
+	elseif inclusivityScore >= 45 then
+		inclusivityNote = "Aksesibilitas moderat; masih terdapat tantangan bagi pengguna kursi roda atau pejalan kaki rentan."
+	else
+		inclusivityNote = "Aksesibilitas rendah; eksklusif bagi pengguna berkemampuan fisik penuh tanpa fasilitas ramah difabel."
+	end
+
+	local budgetNote: string
+	if budgetEfficiency >= 50 then
+		budgetNote = string.format("Efisiensi biaya sangat baik (Sisa: %s); hemat modal untuk pemeliharaan masa depan.", formatRupiah(remainingBudget))
+	elseif budgetEfficiency >= 20 then
+		budgetNote = string.format("Alokasi anggaran seimbang (Sisa: %s); proporsional terhadap infrastruktur fisik.", formatRupiah(remainingBudget))
+	else
+		budgetNote = string.format("Anggaran hampir habis (Sisa: %s); investasi modal intensif mendekati batas plafon.", formatRupiah(remainingBudget))
+	end
+
+	local scores: MultidimensionalScores = {
+		SafetyIndex = safetyIndex,
+		TrafficCongestion = trafficCongestion,
+		InclusivityScore = inclusivityScore,
+		BudgetEfficiency = budgetEfficiency,
+	}
+
+	local notes: DimensionNotes = {
+		SafetyNote = safetyNote,
+		TrafficNote = trafficNote,
+		InclusivityNote = inclusivityNote,
+		BudgetNote = budgetNote,
+	}
+
+	local reportSummary = string.format(
+		"METRIK MULTIDIMENSI:\n" ..
+		"• Safety Index: %d%% (%s)\n" ..
+		"• Traffic Congestion: %d%% (%s)\n" ..
+		"• Inclusivity Score: %d%% (%s)\n" ..
+		"• Budget Efficiency: %d%% (%s)",
+		scores.SafetyIndex, notes.SafetyNote,
+		scores.TrafficCongestion, notes.TrafficNote,
+		scores.InclusivityScore, notes.InclusivityNote,
+		scores.BudgetEfficiency, notes.BudgetNote
+	)
+
+	return scores, notes, reportSummary
 end
 
 function EvaluationService.EvaluateFullSession(
@@ -191,6 +337,16 @@ function EvaluationService.EvaluateFullSession(
 	local pivotBlockedByBudget = stars < 5 and not pivotHasAffordableRoute
 	local mustDeepPivot = safetyStatus == "FAIL" and canDeepPivot
 	local statement = if appliedPatch then appliedPatch.RaniFeedback else prototype.RaniFeedback
+
+	-- [UPGRADE] Kalkulasi metrik multidimensi dan narasi diagnosis
+	local multiScores, dimensionNotes, reportSummary = EvaluationService.CalculateMultidimensionalScores(
+		prototype,
+		pathRiskTags,
+		remainingBudget,
+		appliedPatch ~= nil,
+		safetyStatus
+	)
+
 	return {
 		ScoreDT = score,
 		SafetyStatus = safetyStatus,
@@ -206,6 +362,10 @@ function EvaluationService.EvaluateFullSession(
 		CanDeepPivot = canDeepPivot,
 		MustDeepPivot = mustDeepPivot,
 		PivotBlockedByBudget = pivotBlockedByBudget,
+		-- [UPGRADE] Field metrik multidimensi & narasi baru
+		MultidimensionalScores = multiScores,
+		DimensionNotes = dimensionNotes,
+		ReportSummary = reportSummary,
 	}
 end
 

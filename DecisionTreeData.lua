@@ -37,6 +37,10 @@ export type Prototype = {
 	SafetyRiskDescription: string,
 	RaniFeedback: string,
 	QuickPatch: QuickPatch?,
+	-- [UPGRADE] Metrik evaluasi multidimensi
+	BaseSafetyScore: number,
+	TrafficImpact: number,
+	InclusivityScore: number,
 }
 
 local Nodes: { [string]: DecisionNode } = {
@@ -239,6 +243,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Visibilitas zona sekolah pada malam hari.",
 		SafetyRiskDescription = "Lampu putih yang menyilaukan dapat mengganggu pandangan pengendara dan memicu kecelakaan.",
 		RaniFeedback = "Kak, lampunya menyilaukan! Mobil tadi oleng dan hampir menabrak tiang trotoar!",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 25,
+		TrafficImpact = 35,
+		InclusivityScore = 20,
 	},
 	["P.02"] = {
 		ParentChoiceId = "3.A1a", Name = "Rambu LED hazard kuning tenaga surya", Cost = 4500000, Points = 25,
@@ -247,6 +255,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Rambu bersifat pasif; pengendara yang terburu-buru dapat mengabaikannya.",
 		RaniFeedback = "Rambunya terlihat jelas, tetapi beberapa motor tetap melaju cepat.",
 		QuickPatch = { Name = "Tambahkan marka pengurang kecepatan", Cost = 2000000, ModelName = "Patch_P02_RumbleStrip", ResolvesRiskTags = {}, RaniFeedback = "Marka tambahannya membuat pengendara lebih sadar untuk memperlambat laju." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 60,
+		TrafficImpact = 15,
+		InclusivityScore = 40,
 	},
 	["P.03"] = {
 		ParentChoiceId = "3.A1b", Name = "Cat marka putih biasa", Cost = 1500000, Points = 10,
@@ -254,6 +266,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Penandaan zebra cross dengan biaya rendah.",
 		SafetyRiskDescription = "Cat yang licin saat basah dapat membuat pengendara motor tergelincir ketika mengerem.",
 		RaniFeedback = "Saat gerimis, seorang pengendara tergelincir di marka cat. Itu membuatku takut.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 20,
+		TrafficImpact = 10,
+		InclusivityScore = 30,
 	},
 	["P.04"] = {
 		ParentChoiceId = "3.A1b", Name = "Pita getar termoplastik merah kasar antiselip", Cost = 3500000, Points = 25,
@@ -261,6 +277,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Memberi isyarat getar agar kendaraan melambat sebelum zebra cross.",
 		SafetyRiskDescription = "Getaran memberi pengendara peringatan sebelum penyeberangan.",
 		RaniFeedback = "Kendaraan melambat saat melewati pita getar. Aku jadi lebih berani melangkah.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 80,
+		TrafficImpact = 25,
+		InclusivityScore = 50,
 	},
 	["P.05"] = {
 		ParentChoiceId = "3.A2a", Name = "Gundukan aspal tajam 15 cm tanpa penanda", Cost = 2000000, Points = 10,
@@ -268,6 +288,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Memaksa kendaraan mengurangi kecepatan.",
 		SafetyRiskDescription = "Gundukan tajam dapat merusak kendaraan dan membahayakan pengendara maupun kendaraan darurat.",
 		RaniFeedback = "Warga protes karena ambulans terbentur gundukan dan barang di dalamnya jatuh.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 35,
+		TrafficImpact = 85,
+		InclusivityScore = 20,
 	},
 	["P.06"] = {
 		ParentChoiceId = "3.A2a", Name = "Speed bump karet kuning-hitam reflektor", Cost = 4000000, Points = 25,
@@ -276,6 +300,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Tanpa penerangan tambahan, pejalan kaki masih sulit terlihat pada malam hari.",
 		RaniFeedback = "Mobil melambat, tetapi malam hari masih terlalu gelap untuk melihatku.",
 		QuickPatch = { Name = "Tambahkan lampu penerangan zona", Cost = 2000000, ModelName = "Patch_P06_Lighting", ResolvesRiskTags = {}, RaniFeedback = "Lampu tambahannya membantu pengendara melihat area penyeberangan pada malam hari." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 65,
+		TrafficImpact = 45,
+		InclusivityScore = 40,
 	},
 	["P.07"] = {
 		ParentChoiceId = "3.A2b", Name = "Speed table curam tanpa saluran drainase", Cost = 5000000, Points = 10,
@@ -284,6 +312,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Tanpa drainase, air hujan dapat menggenang dan menghalangi siswa menyeberang.",
 		RaniFeedback = "Saat hujan air menggenang di depan zebra cross dan sepatuku basah.",
 		QuickPatch = { Name = "Tambahkan saluran drainase", Cost = 2000000, ModelName = "Patch_P07_Drainage", ResolvesRiskTags = {}, RaniFeedback = "Saluran baru mengurangi genangan dan membuat lintasan lebih nyaman." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 55,
+		TrafficImpact = 60,
+		InclusivityScore = 35,
 	},
 	["P.08"] = {
 		ParentChoiceId = "3.A2b", Name = "Speed table paving berpori landai rasio 1:10", Cost = 7500000, Points = 25,
@@ -291,6 +323,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Perlambatan bertahap, akses lebih landai, dan resapan air.",
 		SafetyRiskDescription = "Permukaan landai memberi akses lebih nyaman dan membantu kendaraan melambat bertahap.",
 		RaniFeedback = "Permukaannya rata dengan trotoar dan kendaraan melaju lebih pelan. Aku nyaman menyeberang.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 90,
+		TrafficImpact = 35,
+		InclusivityScore = 85,
 	},
 	["P.09"] = {
 		ParentChoiceId = "3.B1a", Name = "JPO tangga tegak terbuka 40 trap", Cost = 6000000, Points = 10,
@@ -298,6 +334,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Memisahkan pejalan kaki dari jalan raya.",
 		SafetyRiskDescription = "Tangga yang melelahkan membuat siswa berisiko menolak JPO dan menerobos jalan.",
 		RaniFeedback = "Tangga ini melelahkan. Beberapa siswa memilih menerobos jalan karena takut terlambat.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 30,
+		TrafficImpact = 5,
+		InclusivityScore = 10,
 	},
 	["P.10"] = {
 		ParentChoiceId = "3.B1a", Name = "JPO tangga besi dengan kanopi", Cost = 8000000, Points = 25,
@@ -306,6 +346,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Tangga beratap tetap tidak mudah digunakan oleh pengguna kursi roda atau siswa yang sulit menaiki tangga.",
 		RaniFeedback = "Jembatannya teduh, tetapi temanku yang kakinya cedera tidak dapat menaiki tangga.",
 		QuickPatch = { Name = "Tambahkan lift aksesibel pada JPO", Cost = 2000000, ModelName = "Patch_P10_AccessLift", ResolvesRiskTags = { ACCESSIBILITY = true }, RaniFeedback = "Lift tambahan membuat JPO lebih mudah diakses oleh teman-temanku." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 65,
+		TrafficImpact = 5,
+		InclusivityScore = 25,
 	},
 	["P.11"] = {
 		ParentChoiceId = "3.B1b", Name = "JPO ramp landai tanpa peneduh", Cost = 7000000, Points = 10,
@@ -314,6 +358,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Ramp terbuka dapat menjadi licin saat hujan dan panas pada siang hari.",
 		RaniFeedback = "Ramp mudah dilewati, tetapi sangat panas dan menyilaukan saat siang hari.",
 		QuickPatch = { Name = "Tambahkan kanopi dan lapisan antiselip", Cost = 2000000, ModelName = "Patch_P11_Canopy", ResolvesRiskTags = {}, RaniFeedback = "Kanopi dan permukaan tambahan membuat ramp lebih nyaman saat panas maupun hujan." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 60,
+		TrafficImpact = 5,
+		InclusivityScore = 70,
 	},
 	["P.12"] = {
 		ParentChoiceId = "3.B1b", Name = "JPO ramp spiral dengan kanopi dan lampu surya", Cost = 9500000, Points = 25,
@@ -321,6 +369,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Lintasan inklusif yang terlindung cuaca dan terlihat pada malam hari.",
 		SafetyRiskDescription = "Solusi aman tetapi memakai sebagian besar modal tim.",
 		RaniFeedback = "Jembatannya teduh dan terasa aman. Aku bisa menyeberang tanpa khawatir kendaraan di bawah.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 95,
+		TrafficImpact = 5,
+		InclusivityScore = 95,
 	},
 	["P.13"] = {
 		ParentChoiceId = "3.B2a", Name = "Aplikasi CrossSmart berbasis peta teks", Cost = 3000000, Points = 10,
@@ -328,6 +380,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Informasi penyeberangan melalui ponsel.",
 		SafetyRiskDescription = "Membaca ponsel di dekat jalan mengalihkan perhatian dan mengurangi kewaspadaan situasional.",
 		RaniFeedback = "Saat membaca layar HP, aku hampir terserempet motor dari samping!",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 15,
+		TrafficImpact = 10,
+		InclusivityScore = 20,
 	},
 	["P.14"] = {
 		ParentChoiceId = "3.B2a", Name = "Aplikasi CrossSmart dengan suara dan radar bus", Cost = 6000000, Points = 25,
@@ -335,6 +391,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Panduan digital penyeberangan personal.",
 		SafetyRiskDescription = "Layar atau audio ponsel dapat mengalihkan pandangan atau pendengaran dari bahaya lalu lintas.",
 		RaniFeedback = "Suara aplikasi jelas, tetapi perhatianku teralihkan dari jalan saat motor berbelok.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 25,
+		TrafficImpact = 10,
+		InclusivityScore = 35,
 	},
 	["P.15"] = {
 		ParentChoiceId = "3.B2b", Name = "Tiang tombol mekanik + lampu simbol statis", Cost = 4000000, Points = 10,
@@ -343,6 +403,10 @@ local Prototypes: { [string]: Prototype } = {
 		SafetyRiskDescription = "Tanpa informasi durasi, pejalan kaki masih ragu apakah waktu aman cukup untuk menyeberang.",
 		RaniFeedback = "Tombolnya berfungsi, tetapi aku masih khawatir lampu berubah saat aku di tengah jalan.",
 		QuickPatch = { Name = "Tambahkan layar hitung mundur dan audio bip", Cost = 2000000, ModelName = "Patch_P15_Countdown", ResolvesRiskTags = {}, RaniFeedback = "Angka hitung mundur dan bip membuatku lebih yakin kapan harus menyeberang." },
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 60,
+		TrafficImpact = 35,
+		InclusivityScore = 50,
 	},
 	["P.16"] = {
 		ParentChoiceId = "3.B2b", Name = "Tiang tombol kuning taktil + hitung mundur + audio bip", Cost = 6500000, Points = 25,
@@ -350,6 +414,10 @@ local Prototypes: { [string]: Prototype } = {
 		UserNeedAddressed = "Kepastian waktu melalui antarmuka visual, audio, dan sentuhan.",
 		SafetyRiskDescription = "Tombol mudah dikenali dan hitung mundur memberi isyarat waktu yang jelas tanpa melihat ponsel.",
 		RaniFeedback = "Tombol kuningnya mudah ditemukan dan angka mundurnya membuatku tenang untuk melangkah.",
+		-- [UPGRADE] Metrik multidimensi
+		BaseSafetyScore = 92,
+		TrafficImpact = 40,
+		InclusivityScore = 95,
 	},
 }
 
@@ -408,6 +476,16 @@ local function validateData(): (boolean, string?)
 				end
 				if prototype.QuickPatch and prototype.QuickPatch.Cost ~= 2000000 then
 					return false, string.format("Biaya Quick Patch harus Rp2.000.000 untuk %s", choiceKey)
+				end
+				-- [UPGRADE] Validasi rentang metrik multidimensi (0 - 100)
+				if typeof(prototype.BaseSafetyScore) ~= "number" or prototype.BaseSafetyScore < 0 or prototype.BaseSafetyScore > 100 then
+					return false, string.format("BaseSafetyScore harus berupa number (0-100) untuk %s", choiceKey)
+				end
+				if typeof(prototype.TrafficImpact) ~= "number" or prototype.TrafficImpact < 0 or prototype.TrafficImpact > 100 then
+					return false, string.format("TrafficImpact harus berupa number (0-100) untuk %s", choiceKey)
+				end
+				if typeof(prototype.InclusivityScore) ~= "number" or prototype.InclusivityScore < 0 or prototype.InclusivityScore > 100 then
+					return false, string.format("InclusivityScore harus berupa number (0-100) untuk %s", choiceKey)
 				end
 				prototypeReferenceCount[choiceKey] = (prototypeReferenceCount[choiceKey] or 0) + 1
 			end

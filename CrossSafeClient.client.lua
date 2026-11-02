@@ -4,6 +4,8 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- [UPGRADE] TweenService untuk animasi progress bar metrik diagnostik
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -181,10 +183,16 @@ local panel = Instance.new("Frame")
 panel.Name = "MainPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.fromScale(0.5, 0.5)
-panel.Size = UDim2.fromOffset(600, 570)
+-- [UPGRADE] Ukuran panel disesuaikan untuk kenyamanan tampilan rapor dan tombol
+panel.Size = UDim2.fromOffset(620, 590)
 panel.BackgroundColor3 = Color3.fromRGB(24, 35, 48)
 panel.BorderSizePixel = 0
 panel.Parent = gui
+
+local panelConstraint = Instance.new("UISizeConstraint")
+panelConstraint.MinSize = Vector2.new(500, 520)
+panelConstraint.MaxSize = Vector2.new(680, 640)
+panelConstraint.Parent = panel
 
 local panelCorner = Instance.new("UICorner")
 panelCorner.CornerRadius = UDim.new(0, 14)
@@ -234,16 +242,43 @@ closeButton.Activated:Connect(function()
 	gui.Enabled = false
 end)
 
-local budgetLabel = makeLabel("Budget", 46, 25, 16)
+local budgetLabel = makeLabel("Budget", 44, 24, 16)
 budgetLabel.TextColor3 = Color3.fromRGB(255, 218, 105)
 
-local stageLabel = makeLabel("Stage", 74, 26, 16)
+local stageLabel = makeLabel("Stage", 68, 24, 16)
 stageLabel.Font = Enum.Font.GothamSemibold
 
-local promptLabel = makeLabel("Prompt", 104, 205, 16)
+local promptLabel = makeLabel("Prompt", 96, 240, 15)
 promptLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-local statusLabel = makeLabel("Status", 312, 34, 14)
+-- [UPGRADE] ScrollingFrame untuk kontainer rapor evaluasi dan diagnostik multidimensi
+local reportScrollFrame = Instance.new("ScrollingFrame")
+reportScrollFrame.Name = "ReportScrollFrame"
+reportScrollFrame.Position = UDim2.fromOffset(20, 96)
+reportScrollFrame.Size = UDim2.new(1, -40, 0, 240)
+reportScrollFrame.BackgroundTransparency = 1
+reportScrollFrame.BorderSizePixel = 0
+reportScrollFrame.ScrollBarThickness = 6
+reportScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(70, 110, 145)
+reportScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+reportScrollFrame.CanvasSize = UDim2.fromScale(0, 0)
+reportScrollFrame.Visible = false
+reportScrollFrame.Parent = panel
+
+local reportListLayout = Instance.new("UIListLayout")
+reportListLayout.Padding = UDim.new(0, 10)
+reportListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+reportListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+reportListLayout.Parent = reportScrollFrame
+
+local reportPadding = Instance.new("UIPadding")
+reportPadding.PaddingRight = UDim.new(0, 8)
+reportPadding.PaddingLeft = UDim.new(0, 2)
+reportPadding.PaddingTop = UDim.new(0, 2)
+reportPadding.PaddingBottom = UDim.new(0, 10)
+reportPadding.Parent = reportScrollFrame
+
+local statusLabel = makeLabel("Status", 344, 30, 14)
 statusLabel.TextColor3 = Color3.fromRGB(170, 205, 225)
 
 local function makeChoiceButton(name: string, y: number): TextButton
@@ -275,10 +310,10 @@ local function makeChoiceButton(name: string, y: number): TextButton
 end
 
 local choiceButtons = {
-	makeChoiceButton("Choice1", 354),
-	makeChoiceButton("Choice2", 442),
+	makeChoiceButton("Choice1", 380),
+	makeChoiceButton("Choice2", 466),
 }
-local startSessionButton = makeChoiceButton("StartSession", 354)
+local startSessionButton = makeChoiceButton("StartSession", 380)
 startSessionButton.Text = "Mulai diskusi bersama Rani"
 startSessionButton.Visible = false
 
@@ -311,6 +346,9 @@ local function showRaniDialogue(found: number, required: number, canStart: boole
 	activeNodeKey = nil
 	activeVoteToken = nil
 	clearChoices()
+	-- [UPGRADE] Pastikan ScrollFrame non-aktif saat berdialog dengan Rani
+	reportScrollFrame.Visible = false
+	promptLabel.Visible = true
 	titleLabel.Text = "CrossSafe | Bicara dengan Rani"
 	budgetLabel.Text = ""
 	stageLabel.Text = "Empathize — dengarkan pengguna"
@@ -385,6 +423,9 @@ end
 
 local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget: number, stage: number, voteToken: number?)
 	gui.Enabled = true
+	-- [UPGRADE] Pastikan ScrollFrame non-aktif saat voting pertanyaan node
+	reportScrollFrame.Visible = false
+	promptLabel.Visible = true
 	local node = DecisionTreeData.Nodes[nodeKey]
 	if not node then
 		statusLabel.Text = "Node tidak ditemukan: " .. nodeKey
@@ -411,6 +452,363 @@ local function renderNode(nodeKey: string, allowedChoiceKeys: { string }, budget
 	end
 end
 
+-- [UPGRADE] Fungsi penentuan warna dinamis metrik diagnostik
+local function getMetricColor(metricKey: string, value: number): Color3
+	if metricKey == "SafetyIndex" then
+		if value >= 80 then
+			return Color3.fromRGB(58, 196, 125) -- Hijau
+		elseif value >= 50 then
+			return Color3.fromRGB(245, 185, 66)  -- Kuning
+		else
+			return Color3.fromRGB(235, 87, 87)   -- Merah
+		end
+	elseif metricKey == "TrafficCongestion" then
+		if value <= 20 then
+			return Color3.fromRGB(58, 196, 125) -- Hijau (Lancar)
+		elseif value <= 50 then
+			return Color3.fromRGB(245, 185, 66)  -- Kuning (Sedang)
+		else
+			return Color3.fromRGB(235, 87, 87)   -- Merah (Macet parah)
+		end
+	elseif metricKey == "InclusivityScore" then
+		if value >= 80 then
+			return Color3.fromRGB(58, 196, 125) -- Hijau (Ramah difabel/lansia)
+		elseif value >= 45 then
+			return Color3.fromRGB(245, 185, 66)  -- Kuning
+		else
+			return Color3.fromRGB(235, 87, 87)   -- Merah (Tidak aksesibel)
+		end
+	elseif metricKey == "BudgetEfficiency" then
+		if value >= 50 then
+			return Color3.fromRGB(58, 196, 125) -- Hijau
+		elseif value >= 20 then
+			return Color3.fromRGB(245, 185, 66)  -- Kuning
+		else
+			return Color3.fromRGB(235, 87, 87)   -- Merah
+		end
+	end
+	return Color3.fromRGB(58, 196, 125)
+end
+
+-- [UPGRADE] Pembersih kontainer laporan evaluasi
+local function clearReportView()
+	for _, child in ipairs(reportScrollFrame:GetChildren()) do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+end
+
+-- [UPGRADE] Membangun tampilan visual laporan dan kartu diagnostik multidimensi
+local function populateReportView(report: any, budget: number)
+	clearReportView()
+	reportScrollFrame.CanvasPosition = Vector2.new(0, 0)
+
+	-- 1. Kartu Ringkasan Hasil & Putusan (LayoutOrder = 1)
+	local verdictCard = Instance.new("Frame")
+	verdictCard.Name = "VerdictCard"
+	verdictCard.Size = UDim2.new(1, 0, 0, 0)
+	verdictCard.AutomaticSize = Enum.AutomaticSize.Y
+	verdictCard.BackgroundColor3 = Color3.fromRGB(30, 44, 60)
+	verdictCard.BorderSizePixel = 0
+	verdictCard.LayoutOrder = 1
+	verdictCard.Parent = reportScrollFrame
+
+	local verdictCorner = Instance.new("UICorner")
+	verdictCorner.CornerRadius = UDim.new(0, 10)
+	verdictCorner.Parent = verdictCard
+
+	local verdictStroke = Instance.new("UIStroke")
+	verdictStroke.Color = Color3.fromRGB(50, 72, 96)
+	verdictStroke.Thickness = 1
+	verdictStroke.Parent = verdictCard
+
+	local verdictLayout = Instance.new("UIListLayout")
+	verdictLayout.Padding = UDim.new(0, 6)
+	verdictLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	verdictLayout.Parent = verdictCard
+
+	local verdictPadding = Instance.new("UIPadding")
+	verdictPadding.PaddingLeft = UDim.new(0, 14)
+	verdictPadding.PaddingRight = UDim.new(0, 14)
+	verdictPadding.PaddingTop = UDim.new(0, 12)
+	verdictPadding.PaddingBottom = UDim.new(0, 12)
+	verdictPadding.Parent = verdictCard
+
+	-- Judul Putusan
+	local titleLbl = Instance.new("TextLabel")
+	titleLbl.Name = "VerdictTitle"
+	titleLbl.Size = UDim2.new(1, 0, 0, 24)
+	titleLbl.AutomaticSize = Enum.AutomaticSize.Y
+	titleLbl.BackgroundTransparency = 1
+	titleLbl.Font = Enum.Font.GothamBold
+	titleLbl.Text = report.VerdictTitle or "LAPORAN EVALUASI DESAIN"
+	titleLbl.TextColor3 = Color3.fromRGB(255, 235, 160)
+	titleLbl.TextSize = 16
+	titleLbl.TextWrapped = true
+	titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+	titleLbl.LayoutOrder = 1
+	titleLbl.Parent = verdictCard
+
+	-- Baris Skor & Bintang
+	local stars = string.rep("★", report.StarRating or 1) .. string.rep("☆", 5 - (report.StarRating or 1))
+	local statusColor = if report.SafetyStatus == "PASS"
+		then Color3.fromRGB(58, 196, 125)
+		elseif report.SafetyStatus == "CONDITIONAL"
+		then Color3.fromRGB(245, 185, 66)
+		else Color3.fromRGB(235, 87, 87)
+
+	local scoreLbl = Instance.new("TextLabel")
+	scoreLbl.Name = "ScoreLine"
+	scoreLbl.Size = UDim2.new(1, 0, 0, 20)
+	scoreLbl.BackgroundTransparency = 1
+	scoreLbl.Font = Enum.Font.GothamBold
+	scoreLbl.Text = string.format("Skor DT: %d/100  |  %s  [%s]", report.ScoreDT or 0, stars, report.SafetyStatus or "EVAL")
+	scoreLbl.TextColor3 = statusColor
+	scoreLbl.TextSize = 14
+	scoreLbl.TextXAlignment = Enum.TextXAlignment.Left
+	scoreLbl.LayoutOrder = 2
+	scoreLbl.Parent = verdictCard
+
+	-- Kebutuhan Pengguna
+	local needLbl = Instance.new("TextLabel")
+	needLbl.Name = "UserNeed"
+	needLbl.Size = UDim2.new(1, 0, 0, 18)
+	needLbl.AutomaticSize = Enum.AutomaticSize.Y
+	needLbl.BackgroundTransparency = 1
+	needLbl.Font = Enum.Font.Gotham
+	needLbl.Text = "🎯 Kebutuhan: " .. (report.UserNeedAddressed or "-")
+	needLbl.TextColor3 = Color3.fromRGB(220, 235, 245)
+	needLbl.TextSize = 12
+	needLbl.TextWrapped = true
+	needLbl.TextXAlignment = Enum.TextXAlignment.Left
+	needLbl.LayoutOrder = 3
+	needLbl.Parent = verdictCard
+
+	-- Catatan Risiko
+	local riskLbl = Instance.new("TextLabel")
+	riskLbl.Name = "RiskNote"
+	riskLbl.Size = UDim2.new(1, 0, 0, 18)
+	riskLbl.AutomaticSize = Enum.AutomaticSize.Y
+	riskLbl.BackgroundTransparency = 1
+	riskLbl.Font = Enum.Font.Gotham
+	riskLbl.Text = "⚠️ Evaluasi: " .. (report.CriticalRiskNote or "-")
+	riskLbl.TextColor3 = Color3.fromRGB(255, 205, 175)
+	riskLbl.TextSize = 12
+	riskLbl.TextWrapped = true
+	riskLbl.TextXAlignment = Enum.TextXAlignment.Left
+	riskLbl.LayoutOrder = 4
+	riskLbl.Parent = verdictCard
+
+	-- Kutipan Rani
+	local quoteFrame = Instance.new("Frame")
+	quoteFrame.Name = "RaniQuote"
+	quoteFrame.Size = UDim2.new(1, 0, 0, 0)
+	quoteFrame.AutomaticSize = Enum.AutomaticSize.Y
+	quoteFrame.BackgroundColor3 = Color3.fromRGB(20, 30, 42)
+	quoteFrame.BorderSizePixel = 0
+	quoteFrame.LayoutOrder = 5
+	quoteFrame.Parent = verdictCard
+
+	local quoteCorner = Instance.new("UICorner")
+	quoteCorner.CornerRadius = UDim.new(0, 6)
+	quoteCorner.Parent = quoteFrame
+
+	local quotePadding = Instance.new("UIPadding")
+	quotePadding.PaddingLeft = UDim.new(0, 10)
+	quotePadding.PaddingRight = UDim.new(0, 10)
+	quotePadding.PaddingTop = UDim.new(0, 6)
+	quotePadding.PaddingBottom = UDim.new(0, 6)
+	quotePadding.Parent = quoteFrame
+
+	local quoteLbl = Instance.new("TextLabel")
+	quoteLbl.Name = "QuoteText"
+	quoteLbl.Size = UDim2.new(1, 0, 0, 16)
+	quoteLbl.AutomaticSize = Enum.AutomaticSize.Y
+	quoteLbl.BackgroundTransparency = 1
+	quoteLbl.Font = Enum.Font.GothamItalic
+	quoteLbl.Text = string.format('💬 Rani: "%s"', report.RaniStatement or "")
+	quoteLbl.TextColor3 = Color3.fromRGB(195, 235, 255)
+	quoteLbl.TextSize = 12
+	quoteLbl.TextWrapped = true
+	quoteLbl.TextXAlignment = Enum.TextXAlignment.Left
+	quoteLbl.Parent = quoteFrame
+
+	-- 2. Header Bagian Diagnostik Multidimensi (LayoutOrder = 2)
+	local diagHeader = Instance.new("TextLabel")
+	diagHeader.Name = "DiagnosticsHeader"
+	diagHeader.Size = UDim2.new(1, 0, 0, 26)
+	diagHeader.BackgroundTransparency = 1
+	diagHeader.Font = Enum.Font.GothamBold
+	diagHeader.Text = "📊 DIAGNOSTIK MULTIDIMENSI"
+	diagHeader.TextColor3 = Color3.fromRGB(130, 210, 255)
+	diagHeader.TextSize = 13
+	diagHeader.TextXAlignment = Enum.TextXAlignment.Left
+	diagHeader.LayoutOrder = 2
+	diagHeader.Parent = reportScrollFrame
+
+	-- 3. Pembuatan 4 Kartu Metrik dengan Animasi Progress Bar (LayoutOrder 3 - 6)
+	local multiScores = report.MultidimensionalScores or {
+		SafetyIndex = if report.SafetyStatus == "PASS" then 85 elseif report.SafetyStatus == "CONDITIONAL" then 65 else 30,
+		TrafficCongestion = 30,
+		InclusivityScore = 50,
+		BudgetEfficiency = math.clamp(math.round((budget / DecisionTreeData.Constants.InitialBudget) * 100), 0, 100),
+	}
+	local dimensionNotes = report.DimensionNotes or {
+		SafetyNote = report.CriticalRiskNote or "",
+		TrafficNote = "Hambatan lalu lintas terkendali.",
+		InclusivityNote = "Aksesibilitas desain sekolah.",
+		BudgetNote = string.format("Sisa modal: %s.", formatRupiah(budget)),
+	}
+
+	local metricConfigs = {
+		{
+			Key = "SafetyIndex",
+			Title = "Safety Index (Proteksi Pejalan Kaki)",
+			Value = multiScores.SafetyIndex,
+			Note = dimensionNotes.SafetyNote or "",
+			Order = 3,
+		},
+		{
+			Key = "TrafficCongestion",
+			Title = "Traffic Congestion (Hambatan Kendaraan)",
+			Value = multiScores.TrafficCongestion,
+			Note = dimensionNotes.TrafficNote or "",
+			Order = 4,
+		},
+		{
+			Key = "InclusivityScore",
+			Title = "Inclusivity Score (Ramah Difabel & Lansia)",
+			Value = multiScores.InclusivityScore,
+			Note = dimensionNotes.InclusivityNote or "",
+			Order = 5,
+		},
+		{
+			Key = "BudgetEfficiency",
+			Title = "Budget Efficiency (Efisiensi Modal)",
+			Value = multiScores.BudgetEfficiency,
+			Note = dimensionNotes.BudgetNote or "",
+			Order = 6,
+		},
+	}
+
+	for _, cfg in ipairs(metricConfigs) do
+		local metricCard = Instance.new("Frame")
+		metricCard.Name = "Card_" .. cfg.Key
+		metricCard.Size = UDim2.new(1, 0, 0, 0)
+		metricCard.AutomaticSize = Enum.AutomaticSize.Y
+		metricCard.BackgroundColor3 = Color3.fromRGB(28, 40, 54)
+		metricCard.BorderSizePixel = 0
+		metricCard.LayoutOrder = cfg.Order
+		metricCard.Parent = reportScrollFrame
+
+		local cardCorner = Instance.new("UICorner")
+		cardCorner.CornerRadius = UDim.new(0, 8)
+		cardCorner.Parent = metricCard
+
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = Color3.fromRGB(44, 62, 82)
+		cardStroke.Thickness = 1
+		cardStroke.Parent = metricCard
+
+		local cardLayout = Instance.new("UIListLayout")
+		cardLayout.Padding = UDim.new(0, 5)
+		cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		cardLayout.Parent = metricCard
+
+		local cardPadding = Instance.new("UIPadding")
+		cardPadding.PaddingLeft = UDim.new(0, 12)
+		cardPadding.PaddingRight = UDim.new(0, 12)
+		cardPadding.PaddingTop = UDim.new(0, 9)
+		cardPadding.PaddingBottom = UDim.new(0, 9)
+		cardPadding.Parent = metricCard
+
+		-- Baris Judul & Persentase
+		local topRow = Instance.new("Frame")
+		topRow.Name = "TopRow"
+		topRow.Size = UDim2.new(1, 0, 0, 18)
+		topRow.BackgroundTransparency = 1
+		topRow.LayoutOrder = 1
+		topRow.Parent = metricCard
+
+		local metricTitle = Instance.new("TextLabel")
+		metricTitle.Name = "Title"
+		metricTitle.Size = UDim2.new(1, -60, 1, 0)
+		metricTitle.BackgroundTransparency = 1
+		metricTitle.Font = Enum.Font.GothamSemibold
+		metricTitle.Text = cfg.Title
+		metricTitle.TextColor3 = Color3.fromRGB(240, 245, 250)
+		metricTitle.TextSize = 12
+		metricTitle.TextXAlignment = Enum.TextXAlignment.Left
+		metricTitle.Parent = topRow
+
+		local metricPercent = Instance.new("TextLabel")
+		metricPercent.Name = "Percent"
+		metricPercent.Size = UDim2.new(0, 60, 1, 0)
+		metricPercent.Position = UDim2.new(1, -60, 0, 0)
+		metricPercent.BackgroundTransparency = 1
+		metricPercent.Font = Enum.Font.GothamBold
+		metricPercent.Text = string.format("%d%%", cfg.Value)
+		local metricColor = getMetricColor(cfg.Key, cfg.Value)
+		metricPercent.TextColor3 = metricColor
+		metricPercent.TextSize = 13
+		metricPercent.TextXAlignment = Enum.TextXAlignment.Right
+		metricPercent.Parent = topRow
+
+		-- Progress Bar Track
+		local barTrack = Instance.new("Frame")
+		barTrack.Name = "BarTrack"
+		barTrack.Size = UDim2.new(1, 0, 0, 10)
+		barTrack.BackgroundColor3 = Color3.fromRGB(16, 23, 32)
+		barTrack.BorderSizePixel = 0
+		barTrack.LayoutOrder = 2
+		barTrack.Parent = metricCard
+
+		local trackCorner = Instance.new("UICorner")
+		trackCorner.CornerRadius = UDim.new(0, 5)
+		trackCorner.Parent = barTrack
+
+		-- Fill Bar dengan Animasi Tweening
+		local fillBar = Instance.new("Frame")
+		fillBar.Name = "FillBar"
+		fillBar.Size = UDim2.new(0, 0, 1, 0) -- Mulai dari 0% untuk efek animasi
+		fillBar.BackgroundColor3 = metricColor
+		fillBar.BorderSizePixel = 0
+		fillBar.Parent = barTrack
+
+		local fillCorner = Instance.new("UICorner")
+		fillCorner.CornerRadius = UDim.new(0, 5)
+		fillCorner.Parent = fillBar
+
+		-- Jalankan animasi pengisian bar
+		task.defer(function()
+			task.wait(0.08 * (cfg.Order - 2))
+			local targetFraction = math.clamp(cfg.Value, 0, 100) / 100
+			local tween = TweenService:Create(
+				fillBar,
+				TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Size = UDim2.new(targetFraction, 0, 1, 0) }
+			)
+			tween:Play()
+		end)
+
+		-- Catatan Kualitatif / Subteks Refleksi
+		local noteLbl = Instance.new("TextLabel")
+		noteLbl.Name = "DimensionNote"
+		noteLbl.Size = UDim2.new(1, 0, 0, 16)
+		noteLbl.AutomaticSize = Enum.AutomaticSize.Y
+		noteLbl.BackgroundTransparency = 1
+		noteLbl.Font = Enum.Font.Gotham
+		noteLbl.Text = cfg.Note
+		noteLbl.TextColor3 = Color3.fromRGB(180, 205, 220)
+		noteLbl.TextSize = 11
+		noteLbl.TextWrapped = true
+		noteLbl.TextXAlignment = Enum.TextXAlignment.Left
+		noteLbl.LayoutOrder = 3
+		noteLbl.Parent = metricCard
+	end
+end
+
 local function renderReport(report: any, budget: number)
 	gui.Enabled = true
 	activeNodeKey = nil
@@ -418,16 +816,12 @@ local function renderReport(report: any, budget: number)
 	clearChoices()
 	setBudget(budget)
 	stageLabel.Text = string.format("Laporan desain | %s", report.SafetyStatus)
-	local stars = string.rep("★", report.StarRating) .. string.rep("☆", 5 - report.StarRating)
-	promptLabel.Text = string.format(
-		"%s\nSkor Design Thinking: %d/100 | %s\nKebutuhan: %s\nCatatan: %s\nRani: %s",
-		report.VerdictTitle,
-		report.ScoreDT,
-		stars,
-		report.UserNeedAddressed,
-		report.CriticalRiskNote,
-		report.RaniStatement
-	)
+
+	-- [UPGRADE] Beralih dari PromptLabel ke ScrollingFrame laporan multidimensi
+	promptLabel.Visible = false
+	reportScrollFrame.Visible = true
+	populateReportView(report, budget)
+
 	if report.MustDeepPivot then
 		statusLabel.Text = "Safety Gate gagal: tim perlu memilih Deep Pivot."
 	elseif report.PivotBlockedByBudget then
@@ -444,9 +838,19 @@ local function renderIteration(actions: { string }, budget: number, mustDeepPivo
 	activeNodeKey = nil
 	setBudget(budget)
 	stageLabel.Text = "Tahap Iterasi | Voting Tim"
-	promptLabel.Text = if mustDeepPivot
-		then "Desain belum lolos Safety Gate. Tim perlu memilih Deep Pivot untuk merancang ulang jalur solusi."
-		else "Pilih cara menanggapi umpan balik Rani. Quick Patch memperbaiki prototipe; Deep Pivot menjual prototipe dengan salvage 50%."
+
+	-- [UPGRADE] Pertahankan ScrollingFrame laporan jika sudah terbuka, agar pemain tetap dapat melihat metrik
+	if reportScrollFrame.Visible then
+		statusLabel.Text = if mustDeepPivot
+			then "Safety Gate gagal: Tim perlu memilih Deep Pivot untuk merancang ulang."
+			else "Pilih cara menanggapi umpan balik Rani. Quick Patch memperbaiki prototipe; Deep Pivot menjual prototipe dengan salvage 50%."
+	else
+		promptLabel.Visible = true
+		promptLabel.Text = if mustDeepPivot
+			then "Desain belum lolos Safety Gate. Tim perlu memilih Deep Pivot untuk merancang ulang jalur solusi."
+			else "Pilih cara menanggapi umpan balik Rani. Quick Patch memperbaiki prototipe; Deep Pivot menjual prototipe dengan salvage 50%."
+	end
+
 	local options: { ButtonOption } = {}
 	for _, action in ipairs(actions) do
 		if action == "QUICK_PATCH" then

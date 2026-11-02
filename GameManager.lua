@@ -389,7 +389,8 @@ local function startTestingSimulation()
 	GameSession.Phase = "SIMULATION"
 	GameSession.CurrentStage = 5
 	local report = evaluateCurrentSession()
-	SpatialMissionManager.RunTestingSimulation(report.SafetyStatus, function()
+	-- [UPGRADE] Meneruskan seluruh report ke simulasi multi-aktor
+	SpatialMissionManager.RunTestingSimulation(report, function()
 		if GameSession.Phase == "SIMULATION" then
 			publishReport(report)
 		end
@@ -513,6 +514,8 @@ local function deepPivot()
 	GameSession.LatestReport = nil
 	GameSession.Phase = "MISSION"
 	destroyMountedModels()
+	-- [UPGRADE] Bersihkan aktor simulasi saat Deep Pivot
+	SpatialMissionManager.ResetSimulation()
 	SyncGameStateEvent:FireAllClients("DEEP_PIVOT_STARTED", GameSession.Budget, GameSession.PivotCount)
 	beginWarRoomMission()
 end

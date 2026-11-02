@@ -3,6 +3,8 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DecisionTreeData = require(ReplicatedStorage:WaitForChild("DecisionTreeData"))
 
 type MissionCompleteCallback = (string, Player, string?) -> ()
 
@@ -347,6 +349,170 @@ local function getVehicleAndMarker(simulationFolder: Instance, vehicleNumber: nu
 	return vehicle, target
 end
 
+-- [UPGRADE] Aktor kedua: Pengguna Ekstrem (Budi / Teman Rani pengguna kursi roda)
+local activeExtremeActor: Model? = nil
+
+local function cleanupExtremeActor()
+	if activeExtremeActor and activeExtremeActor.Parent then
+		activeExtremeActor:Destroy()
+	end
+	activeExtremeActor = nil
+end
+
+local function spawnExtremeUser(startCFrame: CFrame): (Model?, Humanoid?, BasePart?)
+	cleanupExtremeActor()
+	local rani = workspace:FindFirstChild("Rani_NPC")
+	if not rani or not rani:IsA("Model") then
+		return nil, nil, nil
+	end
+
+	local clone = rani:Clone()
+	clone.Name = "ExtremeUser_Budi"
+
+	-- Bersihkan prompt interaksi pada klon
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") then
+			desc:Destroy()
+		end
+	end
+
+	local humanoid = clone:FindFirstChildOfClass("Humanoid")
+	local root = clone:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not root or not root:IsA("BasePart") then
+		clone:Destroy()
+		return nil, nil, nil
+	end
+
+	-- Kecepatan jalan lebih lambat (pejalan kaki rentan / difabel)
+	humanoid.WalkSpeed = 8
+
+	-- Bedakan penampilan: warnai pakaian/torso
+	local torso = clone:FindFirstChild("Torso") or clone:FindFirstChild("UpperTorso")
+	if torso and torso:IsA("BasePart") then
+		torso.Color = Color3.fromRGB(65, 125, 185)
+	end
+
+	-- Pasang struktur kursi roda representatif
+	local seat = Instance.new("Part")
+	seat.Name = "WheelchairSeat"
+	seat.Size = Vector3.new(2.4, 0.4, 2.2)
+	seat.CFrame = root.CFrame * CFrame.new(0, -1.2, 0.2)
+	seat.Color = Color3.fromRGB(45, 55, 65)
+	seat.Material = Enum.Material.Metal
+	seat.CanCollide = false
+	seat.Anchored = false
+	seat.Parent = clone
+
+	local seatWeld = Instance.new("WeldConstraint")
+	seatWeld.Part0 = root
+	seatWeld.Part1 = seat
+	seatWeld.Parent = seat
+
+	for _, xOffset in ipairs({ -1.3, 1.3 }) do
+		local wheel = Instance.new("Part")
+		wheel.Name = "Wheel"
+		wheel.Size = Vector3.new(0.3, 2.2, 2.2)
+		wheel.Shape = Enum.PartType.Cylinder
+		wheel.CFrame = root.CFrame * CFrame.new(xOffset, -1.2, 0.2) * CFrame.Angles(0, 0, math.rad(90))
+		wheel.Color = Color3.fromRGB(30, 30, 30)
+		wheel.Material = Enum.Material.Rubber
+		wheel.CanCollide = false
+		wheel.Anchored = false
+		wheel.Parent = clone
+
+		local wheelWeld = Instance.new("WeldConstraint")
+		wheelWeld.Part0 = root
+		wheelWeld.Part1 = wheel
+		wheelWeld.Parent = wheel
+	end
+
+	-- Tag identitas di atas kepala
+	local head = clone:FindFirstChild("Head") or root
+	local tag = Instance.new("BillboardGui")
+	tag.Name = "ActorTag"
+	tag.Size = UDim2.fromOffset(180, 26)
+	tag.StudsOffset = Vector3.new(0, 2.8, 0)
+	tag.AlwaysOnTop = true
+	tag.Parent = head
+
+	local tagLbl = Instance.new("TextLabel")
+	tagLbl.Size = UDim2.fromScale(1, 1)
+	tagLbl.BackgroundColor3 = Color3.fromRGB(25, 45, 65)
+	tagLbl.Text = "Budi (Pengguna Kursi Roda)"
+	tagLbl.TextColor3 = Color3.fromRGB(180, 230, 255)
+	tagLbl.Font = Enum.Font.GothamBold
+	tagLbl.TextSize = 11
+	tagLbl.Parent = tag
+	local tagCorner = Instance.new("UICorner")
+	tagCorner.CornerRadius = UDim.new(0, 6)
+	tagCorner.Parent = tagLbl
+
+	clone:PivotTo(startCFrame)
+	clone.Parent = workspace
+	activeExtremeActor = clone
+
+	return clone, humanoid, root
+end
+
+-- [UPGRADE] Menampilkan gelembung dialog reaksi pada NPC
+local function showActorDialogue(npc: Model, text: string, duration: number, isWarning: boolean?)
+	local head = npc:FindFirstChild("Head") or npc.PrimaryPart
+	if not head or not head:IsA("BasePart") then
+		return
+	end
+
+	local oldBubble = head:FindFirstChild("SpeechBubbleGui")
+	if oldBubble then
+		oldBubble:Destroy()
+	end
+
+	local bubble = Instance.new("BillboardGui")
+	bubble.Name = "SpeechBubbleGui"
+	bubble.Size = UDim2.fromOffset(230, 64)
+	bubble.StudsOffset = Vector3.new(0, 4.2, 0)
+	bubble.AlwaysOnTop = true
+	bubble.Parent = head
+
+	local bubbleFrame = Instance.new("Frame")
+	bubbleFrame.Size = UDim2.fromScale(1, 1)
+	bubbleFrame.BackgroundColor3 = if isWarning
+		then Color3.fromRGB(160, 35, 35)
+		else Color3.fromRGB(24, 38, 52)
+	bubbleFrame.BorderSizePixel = 0
+	bubbleFrame.Parent = bubble
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = bubbleFrame
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = if isWarning then Color3.fromRGB(255, 110, 110) else Color3.fromRGB(70, 120, 170)
+	stroke.Thickness = 1.5
+	stroke.Parent = bubbleFrame
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -16, 1, -12)
+	label.Position = UDim2.fromOffset(8, 6)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = bubbleFrame
+
+	pcall(function()
+		local Chat = game:GetService("Chat")
+		Chat:Chat(head, text, Enum.ChatColor.White)
+	end)
+
+	task.delay(duration, function()
+		if bubble and bubble.Parent then
+			bubble:Destroy()
+		end
+	end)
+end
+
 local function configureScene()
 	whiteboardPart = getFolderChildPart("WarRoom", "Whiteboard")
 	local boardPrompt = makePrompt(whiteboardPart, "Buka Papan Analisis", "Papan Tulis Satpam", 0.5)
@@ -589,16 +755,49 @@ function SpatialMissionManager.SendState(player: Player)
 	sendMissionState(player)
 end
 
-function SpatialMissionManager.RunTestingSimulation(safetyStatus: string, onComplete: () -> ())
+-- [UPGRADE] Simulasi Penyeberangan Dinamis & Multi-Aktor (Testing Tahap 5)
+function SpatialMissionManager.RunTestingSimulation(simulationPayload: any, onComplete: () -> ())
 	simulationRunId += 1
 	local thisRunId = simulationRunId
+
+	local safetyStatus: string
+	local prototypeKey: string = ""
+	local isPatched: boolean = false
+	if typeof(simulationPayload) == "table" then
+		safetyStatus = simulationPayload.SafetyStatus or "FAIL"
+		prototypeKey = simulationPayload.SelectedPrototypeKey or ""
+		isPatched = simulationPayload.IsPatched == true
+	else
+		safetyStatus = tostring(simulationPayload)
+	end
+
 	local isSafe = safetyStatus == "PASS"
-	local title = "Misi: Kawal Rani menyeberang"
-	local detail = if isSafe
-		then "Simulasi aman: lampu penyeberangan menyala dan kendaraan berhenti di belakang garis stop."
-		else "Simulasi berisiko: kendaraan melintas, klakson berbunyi, dan Rani mundur menjauhi jalan."
+
+	-- Klasifikasi profil perilaku desain
+	local isPelican = prototypeKey == "P.15" or prototypeKey == "P.16"
+	local isSpeedControl = prototypeKey == "P.04" or prototypeKey == "P.06" or prototypeKey == "P.07" or prototypeKey == "P.08"
+	local isOverpass = prototypeKey == "P.09" or prototypeKey == "P.10" or prototypeKey == "P.11" or prototypeKey == "P.12"
+	local isDangerous = not isSafe or prototypeKey == "P.01" or prototypeKey == "P.03" or prototypeKey == "P.05" or prototypeKey == "P.13" or prototypeKey == "P.14"
+
+	-- Validasi Aksesibilitas Ekstrem (Inklusivitas)
+	local isSteepStairsNoLift = prototypeKey == "P.09" or (prototypeKey == "P.10" and not isPatched)
+
+	local title = "Misi: Pengujian Penyeberangan (Rani & Teman Difabel)"
+	local detail: string
+	if isPelican then
+		detail = "Lampu penyeberangan aktif: kendaraan berhenti di belakang stop line dan hitung mundur berbunyi."
+	elseif isOverpass then
+		detail = if isSteepStairsNoLift
+			then "JPO bertangga curam: pejalan kaki biasa melintas, namun kursi roda tidak dapat menaiki tangga."
+			else "JPO ramp landai: kendaraan melintas lancar di bawah; Rani dan Budi menyeberang aman di atas."
+	elseif isSpeedControl then
+		detail = "Marka kejut / speed bump: kendaraan melambat halus dan pejalan kaki menyeberang tertib."
+	else
+		detail = "Peringatan bahaya: kendaraan melaju kencang, rem mendadak, dan pejalan kaki terpaksa mundur!"
+	end
+
 	setMission("SIMULATION", title, detail, 0, 1)
-	setSignalLamp(isSafe)
+	setSignalLamp(isPelican or (isSafe and not isOverpass))
 	notifyAll("SIMULATION_BEAT", if isSafe then "SAFETY_PASS" else "SAFETY_FAIL")
 
 	task.spawn(function()
@@ -609,69 +808,176 @@ function SpatialMissionManager.RunTestingSimulation(safetyStatus: string, onComp
 				root:SetNetworkOwner(nil)
 			end)
 		end
+
 		local destination = workspace:FindFirstChild("Crosswalk_Destination")
 		local entry = workspace:FindFirstChild("Crosswalk_Entry")
-		if humanoid and root and entry and entry:IsA("BasePart") and (root.Position - entry.Position).Magnitude > 3 then
-			moveHumanoidTo(humanoid, getHumanoidMarkerTarget(humanoid, entry), 6.5)
+
+		-- Posisi awal di entry
+		if humanoid and root and entry and entry:IsA("BasePart") then
+			local entryCFrame = entry.CFrame
+			if (root.Position - entry.Position).Magnitude > 6 then
+				moveHumanoidTo(humanoid, getHumanoidMarkerTarget(humanoid, entry), 4.0)
+			end
+			root.CFrame = entryCFrame * CFrame.new(-1.8, 0, 0)
 		end
+
+		-- [UPGRADE] Spawn aktor kedua: Pengguna Ekstrem (Budi) di sebelah Rani
+		local extremeNpc, extremeHumanoid, extremeRoot = nil, nil, nil
+		if entry and entry:IsA("BasePart") then
+			local extremeStart = entry.CFrame * CFrame.new(1.8, 0, 0)
+			extremeNpc, extremeHumanoid, extremeRoot = spawnExtremeUser(extremeStart)
+		end
+
+		-- Perilaku Kendaraan Reaktif
 		local hasMovingVehicle = false
 		if simulationFolder then
 			for vehicleNumber = 1, 2 do
-				local movingVehicle, targetMarker = getVehicleAndMarker(simulationFolder, vehicleNumber, if isSafe then "Stop" else "Pass")
+				local targetKind = "Stop"
+				local vehicleDuration = 3.5
+
+				if isOverpass then
+					targetKind = "Pass"
+					vehicleDuration = 2.8 -- Lalu lintas bawah mengalir lancar
+				elseif isDangerous then
+					targetKind = "Pass"
+					vehicleDuration = 2.2 -- Melaju kencang
+				elseif isPelican then
+					targetKind = "Stop"
+					vehicleDuration = 3.0 -- Berhenti total di stop line
+				elseif isSpeedControl then
+					targetKind = "Stop"
+					vehicleDuration = 4.0 -- Melambat halus
+				end
+
+				local movingVehicle, targetMarker = getVehicleAndMarker(simulationFolder, vehicleNumber, targetKind)
 				if movingVehicle and targetMarker then
 					hasMovingVehicle = true
 					local homePivot = vehicleHomePivots[movingVehicle]
 					if homePivot then
 						movingVehicle:PivotTo(homePivot)
 					end
-				task.spawn(function()
-					tweenModelTo(movingVehicle, targetMarker.CFrame, if isSafe then 3.5 else 2.8)
-				end)
+
+					task.spawn(function()
+						tweenModelTo(movingVehicle, targetMarker.CFrame, vehicleDuration)
+					end)
 				end
 			end
 		end
 
+		-- Perilaku Pejalan Kaki (Rani & Budi)
 		if humanoid and root and destination and destination:IsA("BasePart") then
-			if isSafe then
-				moveHumanoidTo(humanoid, getHumanoidMarkerTarget(humanoid, destination), 7.5)
-			else
-				local startPosition = root.Position
-				local direction = destination.Position - startPosition
-				if direction.Magnitude > 0.1 then
-					direction = direction.Unit
-					local neck = if npc then findRaniNeck(npc) else nil
-					local originalNeckTransform = neck and neck.Transform
-					if neck then
-						neck.Transform = CFrame.Angles(math.rad(35), 0, 0)
-					end
-					moveHumanoidTo(humanoid, startPosition + direction * 5, 3)
-					if neck and originalNeckTransform then
-						neck.Transform = originalNeckTransform
-					end
-					playSound(hornSound)
-					if npc then
-						playRaniFlinch(npc, humanoid)
-					end
-					moveHumanoidTo(humanoid, startPosition - direction * 3, 3)
+			local startPosition = root.Position
+			local direction = destination.Position - startPosition
+			if direction.Magnitude > 0.1 then
+				direction = direction.Unit
+			end
+
+			if isDangerous then
+				-- Skenario Berisiko / Rem Mendadak / Distraksi
+				if prototypeKey == "P.13" or prototypeKey == "P.14" then
+					if npc then showActorDialogue(npc, "Membaca panduan HP... eh?", 2) end
+				else
+					if npc then showActorDialogue(npc, "Ayo kita coba seberang...", 2) end
 				end
+
+				-- Langkah awal masuk ke jalan
+				moveHumanoidTo(humanoid, startPosition + direction * 4, 1.8)
+				if extremeHumanoid and extremeRoot then
+					task.spawn(function()
+						moveHumanoidTo(extremeHumanoid, extremeRoot.Position + direction * 3, 1.8)
+					end)
+				end
+
+				task.wait(1.2)
+				playSound(hornSound)
+
+				if npc then
+					showActorDialogue(npc, "Awas mobil kencang! Hampir tertabrak!", 3.5, true)
+					playRaniFlinch(npc, humanoid)
+				end
+				if extremeNpc then
+					showActorDialogue(extremeNpc, "Bahaya sekali! Kursi roda susah mundur cepat!", 3.5, true)
+				end
+
+				-- Mundur kembali ke trotoar aman
+				moveHumanoidTo(humanoid, startPosition - direction * 2, 2.5)
+				if extremeHumanoid and extremeRoot then
+					task.spawn(function()
+						moveHumanoidTo(extremeHumanoid, extremeRoot.Position - direction * 3, 2.5)
+					end)
+				end
+
+			elseif isSteepStairsNoLift then
+				-- Skenario Kegagalan Inklusivitas (JPO Tangga Curam)
+				if npc then
+					showActorDialogue(npc, "Huft... tangganya 40 trap, melelahkan sekali!", 4)
+				end
+				task.spawn(function()
+					moveHumanoidTo(humanoid, getHumanoidMarkerTarget(humanoid, destination), 7.0)
+				end)
+
+				task.wait(1.0)
+				if extremeNpc and extremeHumanoid then
+					-- Budi berhenti di kaki tangga, tidak bisa naik
+					showActorDialogue(extremeNpc, "Tangganya curam tanpa ramp/lift... Kursi rodaku tidak bisa naik!", 4.5, true)
+					if extremeRoot then
+						extremeHumanoid:MoveTo(extremeRoot.Position + Vector3.new(1, 0, 0))
+						task.wait(0.8)
+						extremeHumanoid:MoveTo(extremeRoot.Position - Vector3.new(1, 0, 0))
+					end
+				end
+
+			else
+				-- Skenario Aman & Inklusif
+				if isPelican then
+					if npc then showActorDialogue(npc, "Lampu hijau menyala dan tombol berbunyi bip!", 3) end
+					if extremeNpc then showActorDialogue(extremeNpc, "Waktu hitung mundurnya jelas untuk menyeberang!", 3) end
+				elseif isOverpass then
+					if npc then showActorDialogue(npc, "JPO ramp landai ini teduh dan aman!", 3) end
+					if extremeNpc then showActorDialogue(extremeNpc, "Asyik, ramp-nya bisa dilewati kursi roda!", 3) end
+				else
+					if npc then showActorDialogue(npc, "Mobilnya melambat dan memberi jalan!", 3) end
+					if extremeNpc then showActorDialogue(extremeNpc, "Jalanan rata dan nyaman!", 3) end
+				end
+
+				-- Menyeberang bersama ke seberang
+				task.spawn(function()
+					moveHumanoidTo(humanoid, getHumanoidMarkerTarget(humanoid, destination), 7.0)
+				end)
+				if extremeHumanoid and extremeRoot then
+					task.spawn(function()
+						local destOffset = getHumanoidMarkerTarget(extremeHumanoid, destination) + Vector3.new(2.5, 0, 0)
+						moveHumanoidTo(extremeHumanoid, destOffset, 7.5)
+					end)
+				end
+
+				task.wait(3.5)
+				if npc then showActorDialogue(npc, "Alhamdulillah, kita sampai di sekolah dengan aman!", 3.5) end
+				if extremeNpc then showActorDialogue(extremeNpc, "Desain penyeberangan ini sangat inklusif!", 3.5) end
 			end
 		end
 
-		if hasMovingVehicle then
-			task.wait(if isSafe then 3.6 else 2.9)
-		else
-			task.wait(1)
-		end
+		task.wait(4.5)
+
 		if thisRunId ~= simulationRunId then
+			cleanupExtremeActor()
 			return
 		end
+
 		missionProgress = 1
-		missionDetail = "Simulasi selesai. Rani memberi umpan balik; rapor evaluasi tim siap dibuka."
+		missionDetail = "Simulasi selesai. Rani dan Budi memberikan umpan balik; rapor evaluasi tim siap dibuka."
 		sendMissionState(nil)
+
 		local callback = onComplete
 		callback()
+
+		-- Bersihkan aktor sementara setelah laporan siap tampil
+		task.delay(4, cleanupExtremeActor)
 	end)
 end
 
-return SpatialMissionManager
+function SpatialMissionManager.ResetSimulation()
+	cleanupExtremeActor()
+end
 
+return SpatialMissionManager
